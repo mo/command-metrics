@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+
+# TODO:
+# -- mark single metric as "bulk" (can run in parallel to others) or "perf" (must have machine to itself when it runs)
+# -- re-run X times and save average
+# -- make target attribute optional
+# -- pre_sleep_seconds
+# -- move legend to the right
+# -- fix xTick cluster makes bad labels bug
+# -- fix y-axis labels
+# -- make color attribute optional (auto generate unique colors from nice scale)
+
+import os
+import sys
+import sets
+import stat
+import time
+import shutil
+import random
+import pprint
+import tempfile
+import argparse
+import datetime
+import subprocess
+
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+
+def measure_metric(config, metric_name, target):
+    metric = config["metrics"][metric_name]
+    command_template = metric["cmd"]
+    if args.debug:
+        print >>sys.stderr, ""
+        print >>sys.stderr, "[DEBUG] command template: " + command_template
+    try:
+        metric_command = command_template % { "target": target }
+    except:
+        print "[ERROR] Invalid command template for metric '%s'." % metric_name
+        print "[NOTE] % must be escaped as %% and target should be referred to as %(target)s"
+        print "[NOTE] Offending command template was: " + command_template
+        sys.exit(1)
+    if args.debug:
+        print >>sys.stderr, "[DEBUG] about to run command: " + metric_command
+    child_env = os.environ.copy()
+    child_env["PATH"] = os.path.join(SCRIPT_DIR, "metric-scripts") + ":" + child_env["PATH"]
+    stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
+    if args.debug:
+        print >>sys.stderr, "[DEBUG] value (from stdout) was: " + repr(stdout_output)
+    value = float(stdout_output)
+    if "throttle_sleep_seconds" in metric:
+        if args.force_sleep:
+            throttle_sleep_seconds = args.force_sleep
+        else:
+            throttle_sleep_seconds = float(metric["throttle_sleep_seconds"])
+        if args.debug:
+            if ("%.3f" % throttle_sleep_seconds).endswith(".000"):
+                sleep_time_str = "%.0f" % throttle_sleep_seconds
+            else:
+                sleep_time_str = "%.3f" % throttle_sleep_seconds
+            print >>sys.stderr, "[DEBUG] throttle sleeping for %s seconds" % sleep_time_str
+        time.sleep(throttle_sleep_seconds)
+    return value
+
+
+class MeasuredData(object):
+    # self.datapoints is a dict in which metric_name maps to a dict,
+    #                           in which target maps to array of object containing
+    #                           { "timestamp": ..., "value": ..., }.
+
+    def __init__(self, data_filename):
+        self.data_filename = data_filename
+
+        if os.path.exists(self.data_filename):
+            self.datapoints = eval(open(self.data_filename).read())
+        else:
+            self.datapoints = {}
+
+    def save_to_disk(self):
+        string_data = pprint.pformat(self.datapoints)
+        with open(self.data_filename, "w") as f:
+            f.write(string_data + "\n")
+
+    def add_data(self, metric_name, target, value):
+        metric_data = self.datapoints.setdefault(metric_name, {}).setdefault(target, [])
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        new_datapoint = { "timestamp": timestamp, "value": value }
+        metric_data.append(new_datapoint)
+
+class JsData(object):
+    def __init__(self, config, measured_data, jsdata_filename):
+        self.config = config
+        self.measured_data = measured_data
+        self.jsdata_filename = jsdata_filename
+
+    def save_to_disk(self):
+        jsdata_tempfile_oshandle, jsdata_tempfile_name = tempfile.mkstemp()
+        with open(jsdata_tempfile_name, "w") as jsdata_temp_file:
+            jsdata_temp_file.write("allChartData = [\n")
+            for chart_name, chart in self.config["charts"].iteritems():
+                jsdata_temp_file.write("{\n")
+                jsdata_temp_file.write("  'chartKey': '%s',\n" % chart_name)
+                jsdata_temp_file.write("  'chartTitle': '%s',\n" % chart["chart_title"])
+                jsdata_temp_file.write("  'chartSeries': [\n")
+                for chart_series in chart["chart_series"]:
+                    metric_name = chart_series["metric"]
+                    target = chart_series["target"]
+                    series_data = self.measured_data.datapoints.get(metric_name, {}).get(target, [])
+                    if series_data:
+                        metric = self.config["metrics"][metric_name]
+                        jsdata_temp_file.write("            {\n")
+                        series_title = metric["title"] % { "target": target }
+                        jsdata_temp_file.write("              'seriesTitle': '%s',\n" % series_title)
+                        jsdata_temp_file.write("              'seriesColor': '%s',\n" % chart_series["color"])
+                        x_values = []
+                        y_values = []
+                        for datapoint in series_data:
+                            x_values.append(datapoint["timestamp"])
+                            y_values.append(datapoint["value"])
+                        quoted_x_values = ",".join(map(lambda val: "'" + str(val) + "'", x_values))
+                        quoted_y_values = ",".join(map(lambda val: "'" + str(val) + "'", y_values))
+                        jsdata_temp_file.write("              'xValues': [\n")
+                        jsdata_temp_file.write("                %s\n" % quoted_x_values)
+                        jsdata_temp_file.write("              ],\n")
+                        jsdata_temp_file.write("              'yValues': [\n")
+                        jsdata_temp_file.write("                %s\n" % quoted_y_values)
+                        jsdata_temp_file.write("              ],\n")
+                        jsdata_temp_file.write("            },\n")
+                jsdata_temp_file.write("  ]\n")
+                jsdata_temp_file.write("},\n")
+
+            jsdata_temp_file.write("]\n")
+
+        os.close(jsdata_tempfile_oshandle)
+        shutil.move(jsdata_tempfile_name, self.jsdata_filename)
+        os.chmod(self.jsdata_filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
+
+def refresh_measurements(config, measured_data, jsdata):
+    for chart_name, chart in config["charts"].iteritems():
+        for series in chart["chart_series"]:
+            metric_name = series["metric"]
+            target = series["target"]
+            value = measure_metric(config, metric_name, target)
+            measured_data.add_data(metric_name, target, value)
+            measured_data.save_to_disk()
+            jsdata.save_to_disk()
+
+def main():
+    config = eval(open(os.path.join(SCRIPT_DIR, "..", "..", "config.pyon")).read())
+    data_filename = os.path.join(SCRIPT_DIR, "..", "..", "data.pyon")
+    jsdata_filename = os.path.join(SCRIPT_DIR, "..", "..", "allChartData.js")
+
+    measured_data = MeasuredData(data_filename)
+    jsdata = JsData(config, measured_data, jsdata_filename)
+
+    refresh_measurements(config, measured_data, jsdata)
+
+if __name__ == '__main__':
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-q", "--quiet", action="store_true")
+        parser.add_argument("-d", "--debug", action="store_true")
+        parser.add_argument("-s", "--force-sleep", metavar="SECONDS", type=float)
+        args = parser.parse_args()
+
+        main()
+
+    except KeyboardInterrupt:
+        print
+        pass

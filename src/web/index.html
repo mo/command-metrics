@@ -1,0 +1,55 @@
+<!doctype>
+<html>
+<head>
+<link href="../../thirdparty/c3.css" rel="stylesheet" type="text/css">
+<script src="../../thirdparty/c3.js"></script>
+<script src="../../thirdparty/d3.js" charset="utf-8"></script>
+
+<script src="utilities.js"></script>
+<script src="../../../allChartData.js"></script>
+<script src="command-metrics.js"></script>
+<style>
+#chart-select {
+    font-size: 12pt;
+    margin-bottom: 15px;
+    min-width: 980px;
+}
+#chart {
+    height: calc(100% - 40px);
+}
+@font-face {
+  font-family: "OpenSans";
+  src: url("../../thirdparty/OpenSans-Regular.ttf");
+}
+body {
+    font-family: OpenSans;
+}
+</style>
+</head>
+<body>
+
+<select id="chart-select" onchange="javascript:window.location='?chart='+this.value">
+</select>
+
+<div id="chart"></div>
+
+<script>
+var params = getUrlParams();
+
+var selectedChart;
+for (var i = 0; i < allChartData.length; ++i) {
+    if (params["chart"] === allChartData[i]["chartKey"]) {
+        selectedChart = allChartData[i];
+        break;
+    }
+}
+if (!selectedChart) {
+    selectedChart = allChartData[0];
+}
+
+populateSelectBox(allChartData, selectedChart);
+renderChart(selectedChart);
+
+</script>
+</body>
+</html>
