@@ -25,6 +25,28 @@ import subprocess
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
+def human_readable_time_span(seconds):
+    if seconds < 0:
+        return "-" + human_readable_time_span(-1*seconds)
+
+    output = ""
+    if seconds == 0 or seconds % 60 != 0:
+        output = str(int(seconds % 60)) + "s"
+
+    minutes = seconds // 60
+    if minutes % 60 != 0:
+        output = str(int(minutes % 60)) + "m" + output
+
+    hours = minutes // 60
+    if hours % 24 != 0:
+        output = str(int(hours % 24)) + "h" + output
+
+    days = hours // 24
+    if days != 0:
+        output = str(int(days)) + "d" + output
+
+    return output
+
 def measure_metric(config, metric_name, target):
     metric = config["metrics"][metric_name]
     command_template = metric["cmd"]
@@ -169,7 +191,14 @@ def main():
     if args.jsdata_only:
         jsdata.save_to_disk()
     else:
+        measurement_start_time = datetime.datetime.now()
         refresh_measurements(config, measured_data, jsdata)
+        measurement_stop_time = datetime.datetime.now()
+        measurement_seconds = (measurement_stop_time - measurement_start_time).total_seconds()
+        if not args.quiet:
+            print "Measurement started: " + str(measurement_start_time)[:19]
+            print "Measurement stopped: " + str(measurement_stop_time)[:19]
+            print "Measurement took: " + human_readable_time_span(measurement_seconds)
 
 if __name__ == '__main__':
     try:
