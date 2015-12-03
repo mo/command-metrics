@@ -154,15 +154,22 @@ class JsData(object):
         os.chmod(self.jsdata_filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
 
 def refresh_measurements(config, measured_data, jsdata):
+    # If "--metric foo --metric yada" is passed, then only refresh measurements
+    # for those metrics, if no such argument is passed "selected_metrics" will
+    # be set to None and measurements for all metrics will be done.
+    selected_metrics = args.metric
+
     todo_list = sets.Set()
     for chart_name, chart in config["charts"].iteritems():
         for series in chart["chart_series"]:
             metric_name = series["metric"]
             target = series["target"]
-            todo_list.add((metric_name, target))
+            if not selected_metrics or metric_name in selected_metrics:
+                todo_list.add((metric_name, target))
     todo_len = len(todo_list)
     if args.debug:
         print "[DEBUG prepared todo list of %d things to measure" % todo_len
+
     for (idx, (metric_name, target)) in enumerate(todo_list):
         print_dict = {
             "current": idx+1,
@@ -187,6 +194,9 @@ def main():
 
     if args.jsdata_only:
         jsdata.save_to_disk()
+    elif args.list_metrics:
+        for metric_name in config["metrics"]:
+            print metric_name
     else:
         measurement_start_time = datetime.datetime.now()
         refresh_measurements(config, measured_data, jsdata)
@@ -204,6 +214,8 @@ if __name__ == '__main__':
         parser.add_argument("-d", "--debug", action="store_true")
         parser.add_argument("-s", "--force-sleep", metavar="SECONDS", type=float)
         parser.add_argument("-j", "--jsdata-only", action="store_true")
+        parser.add_argument("-l", "--list-metrics", action="store_true")
+        parser.add_argument("-m", "--metric", action="append")
         args = parser.parse_args()
 
         main()
