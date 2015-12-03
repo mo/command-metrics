@@ -68,7 +68,7 @@ def measure_metric(config, metric_name, target):
         print >>sys.stderr, "[DEBUG] value (from stdout) was: " + repr(stdout_output)
     value = float(stdout_output)
     if "throttle_sleep_seconds" in metric:
-        if args.force_sleep:
+        if args.force_sleep != None:
             throttle_sleep_seconds = args.force_sleep
         else:
             throttle_sleep_seconds = float(metric["throttle_sleep_seconds"])
