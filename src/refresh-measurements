@@ -29,7 +29,6 @@ def measure_metric(config, metric_name, target):
     metric = config["metrics"][metric_name]
     command_template = metric["cmd"]
     if args.debug:
-        print >>sys.stderr, ""
         print >>sys.stderr, "[DEBUG] command template: " + command_template
     try:
         metric_command = command_template % { "target": target }
@@ -58,6 +57,8 @@ def measure_metric(config, metric_name, target):
                 sleep_time_str = "%.3f" % throttle_sleep_seconds
             print >>sys.stderr, "[DEBUG] throttle sleeping for %s seconds" % sleep_time_str
         time.sleep(throttle_sleep_seconds)
+    if args.debug:
+        print >>sys.stderr, ""
     return value
 
 
@@ -140,9 +141,18 @@ def refresh_measurements(config, measured_data, jsdata):
             metric_name = series["metric"]
             target = series["target"]
             todo_list.add((metric_name, target))
+    todo_len = len(todo_list)
     if args.debug:
-        print "[DEBUG prepared todo list of %d things to measure" % len(todo_list)
-    for (metric_name, target) in todo_list:
+        print "[DEBUG prepared todo list of %d things to measure" % todo_len
+    for (idx, (metric_name, target)) in enumerate(todo_list):
+        print_dict = {
+            "current": idx+1,
+            "total": todo_len,
+            "metric_name": metric_name,
+            "target": target,
+        }
+        if not args.quiet:
+            print "[%(current)d/%(total)d] measuring '%(metric_name)s' for '%(target)s'" % print_dict
         value = measure_metric(config, metric_name, target)
         measured_data.add_data(metric_name, target, value)
         measured_data.save_to_disk()
