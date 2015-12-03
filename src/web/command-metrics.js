@@ -64,7 +64,7 @@ function renderChart(chartData) {
 
     var chart = c3.generate({
         padding: {
-            left: 25,
+            left: 50,
             right: 25,
         },
         data: {
