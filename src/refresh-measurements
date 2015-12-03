@@ -134,14 +134,19 @@ class JsData(object):
         os.chmod(self.jsdata_filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
 
 def refresh_measurements(config, measured_data, jsdata):
+    todo_list = sets.Set()
     for chart_name, chart in config["charts"].iteritems():
         for series in chart["chart_series"]:
             metric_name = series["metric"]
             target = series["target"]
-            value = measure_metric(config, metric_name, target)
-            measured_data.add_data(metric_name, target, value)
-            measured_data.save_to_disk()
-            jsdata.save_to_disk()
+            todo_list.add((metric_name, target))
+    if args.debug:
+        print "[DEBUG prepared todo list of %d things to measure" % len(todo_list)
+    for (metric_name, target) in todo_list:
+        value = measure_metric(config, metric_name, target)
+        measured_data.add_data(metric_name, target, value)
+        measured_data.save_to_disk()
+        jsdata.save_to_disk()
 
 def main():
     config = eval(open(os.path.join(SCRIPT_DIR, "..", "..", "config.pyon")).read())
