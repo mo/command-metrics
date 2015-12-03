@@ -78,12 +78,16 @@ function renderChart(chartData) {
             x: {
                 type: 'timeseries',
                 tick: {
-                    format: '%Y-%m-%d'
+                    count: 6,
+                    format: '%Y-%m-%d %H:%M'
                 }
             }
         },
         tooltip: {
-            grouped: false
-        }
+            grouped: false,
+            format: {
+                title: d3.time.format('%Y-%m-%d %H:%M:%S'),
+            }
+        },
     });
 }
