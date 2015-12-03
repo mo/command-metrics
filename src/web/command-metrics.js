@@ -81,6 +81,9 @@ function renderChart(chartData) {
                     format: '%Y-%m-%d'
                 }
             }
+        },
+        tooltip: {
+            grouped: false
         }
     });
 }
