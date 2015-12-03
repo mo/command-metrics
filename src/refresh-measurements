@@ -60,6 +60,13 @@ def measure_metric(config, metric_name, target):
         print >>sys.stderr, "[DEBUG] about to run command: " + metric_command
     child_env = os.environ.copy()
     child_env["PATH"] = os.path.join(SCRIPT_DIR, "metric-scripts") + ":" + child_env["PATH"]
+
+    external_scripts_dir = os.path.join(SCRIPT_DIR, "../../external-metric-scripts")
+    if os.path.exists(external_scripts_dir):
+        if args.debug:
+            print "[DEBUG] adding '%s' to PATH" % external_scripts_dir
+        child_env["PATH"] = external_scripts_dir + ":" + child_env["PATH"]
+
     stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
     if args.debug:
         print >>sys.stderr, "[DEBUG] value (from stdout) was: " + repr(stdout_output)
