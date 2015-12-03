@@ -156,7 +156,10 @@ def main():
     measured_data = MeasuredData(data_filename)
     jsdata = JsData(config, measured_data, jsdata_filename)
 
-    refresh_measurements(config, measured_data, jsdata)
+    if args.jsdata_only:
+        jsdata.save_to_disk()
+    else:
+        refresh_measurements(config, measured_data, jsdata)
 
 if __name__ == '__main__':
     try:
@@ -164,6 +167,7 @@ if __name__ == '__main__':
         parser.add_argument("-q", "--quiet", action="store_true")
         parser.add_argument("-d", "--debug", action="store_true")
         parser.add_argument("-s", "--force-sleep", metavar="SECONDS", type=float)
+        parser.add_argument("-j", "--jsdata-only", action="store_true")
         args = parser.parse_args()
 
         main()
