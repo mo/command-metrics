@@ -4,10 +4,7 @@
 # -- mark single metric as "bulk" (can run in parallel to others) or "perf" (must have machine to itself when it runs)
 # -- re-run X times and save average
 # -- make target attribute optional
-# -- pre_sleep_seconds
 # -- move legend to the right
-# -- fix xTick cluster makes bad labels bug
-# -- fix y-axis labels
 # -- make color attribute optional (auto generate unique colors from nice scale)
 
 import os
