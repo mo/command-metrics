@@ -6,6 +6,9 @@
 # -- make target attribute optional
 # -- move legend to the right
 # -- make color attribute optional (auto generate unique colors from nice scale)
+# -- ability to zoom specific date range
+# -- minimum_remeasurement_interval per metric
+# -- thicker lines
 
 import os
 import sys
