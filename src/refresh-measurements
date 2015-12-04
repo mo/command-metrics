@@ -109,6 +109,10 @@ class MeasuredData(object):
         with open(self.data_filename, "w") as f:
             f.write(string_data + "\n")
 
+    def delete_data_for_metric(self, metric_name):
+        if metric_name in self.datapoints:
+            del self.datapoints[metric_name]
+
     def add_data(self, metric_name, target, value):
         metric_data = self.datapoints.setdefault(metric_name, {}).setdefault(target, [])
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -207,6 +211,10 @@ def main():
     elif args.list_metrics:
         for metric_name in config["metrics"]:
             print metric_name
+    elif args.delete_data_for_metric:
+        measured_data.delete_data_for_metric(args.delete_data_for_metric)
+        measured_data.save_to_disk()
+        jsdata.save_to_disk()
     else:
         measurement_start_time = datetime.datetime.now()
         refresh_measurements(config, measured_data, jsdata)
@@ -225,6 +233,7 @@ if __name__ == '__main__':
         parser.add_argument("-s", "--force-sleep", metavar="SECONDS", type=float)
         parser.add_argument("-j", "--jsdata-only", action="store_true")
         parser.add_argument("-l", "--list-metrics", action="store_true")
+        parser.add_argument("--delete-data-for-metric", metavar="METRIC_NAME", type=str)
         parser.add_argument("-m", "--metric", action="append")
         args = parser.parse_args()
 
