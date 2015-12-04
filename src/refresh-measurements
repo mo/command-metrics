@@ -9,6 +9,7 @@
 # -- ability to zoom specific date range
 # -- minimum_remeasurement_interval per metric
 # -- thicker lines
+# -- change "charts" in config to be an array
 
 import os
 import sys
