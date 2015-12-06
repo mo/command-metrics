@@ -10,6 +10,7 @@
 # -- minimum_remeasurement_interval per metric
 # -- thicker lines
 # -- change "charts" in config to be an array
+# -- Y value zoom
 
 import os
 import sys
