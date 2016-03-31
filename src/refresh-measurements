@@ -138,7 +138,7 @@ class JsData(object):
                 jsdata_temp_file.write("  'chartSeries': [\n")
                 for chart_series in chart["chart_series"]:
                     metric_name = chart_series["metric"]
-                    target = chart_series["target"]
+                    target = chart_series.get("target", None)
                     series_data = self.measured_data.datapoints.get(metric_name, {}).get(target, [])
                     if series_data:
                         metric = self.config["metrics"][metric_name]
@@ -179,7 +179,7 @@ def refresh_measurements(config, measured_data, jsdata):
     for chart_name, chart in config["charts"].iteritems():
         for series in chart["chart_series"]:
             metric_name = series["metric"]
-            target = series["target"]
+            target = series.get("target", None)
             if not selected_metrics or metric_name in selected_metrics:
                 todo_list.add((metric_name, target))
     todo_len = len(todo_list)
@@ -187,14 +187,17 @@ def refresh_measurements(config, measured_data, jsdata):
         print "[DEBUG prepared todo list of %d things to measure" % todo_len
 
     for (idx, (metric_name, target)) in enumerate(todo_list):
-        print_dict = {
-            "current": idx+1,
-            "total": todo_len,
-            "metric_name": metric_name,
-            "target": target,
-        }
         if not args.quiet:
-            print "[%(current)d/%(total)d] measuring '%(metric_name)s' for '%(target)s'" % print_dict
+            print_dict = {
+                "current": idx+1,
+                "total": todo_len,
+                "metric_name": metric_name,
+                "target": target,
+            }
+            if target:
+                print "[%(current)d/%(total)d] measuring '%(metric_name)s' for '%(target)s'" % print_dict
+            else:
+                print "[%(current)d/%(total)d] measuring '%(metric_name)s'" % print_dict
         value = measure_metric(config, metric_name, target)
         measured_data.add_data(metric_name, target, value)
         measured_data.save_to_disk()
