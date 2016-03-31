@@ -75,6 +75,11 @@ function renderChart(chartData) {
             names: seriesTitles,
         },
         axis: {
+            y: {
+                padding: {
+                    bottom: 0
+                }
+            },
             x: {
                 type: 'timeseries',
                 tick: {
