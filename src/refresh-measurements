@@ -232,6 +232,9 @@ def main():
     measured_data = MeasuredData(data_filename)
     jsdata = JsData(config, measured_data, jsdata_filename)
 
+    # Use unbuffered stdout
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
     if args.jsdata_only:
         jsdata.save_to_disk()
     elif args.list_metrics:
