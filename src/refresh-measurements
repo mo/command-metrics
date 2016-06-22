@@ -53,7 +53,7 @@ def measure_metric(config, metric_name, target):
     metric = config["metrics"][metric_name]
     command_template = metric["cmd"]
     if args.debug:
-        print >>sys.stderr, "[DEBUG] command template: " + command_template
+        print "[DEBUG] command template: " + command_template
     try:
         metric_command = command_template % { "target": target }
     except:
@@ -62,7 +62,7 @@ def measure_metric(config, metric_name, target):
         print "[NOTE] Offending command template was: " + command_template
         sys.exit(1)
     if args.debug:
-        print >>sys.stderr, "[DEBUG] about to run command: " + metric_command
+        print "[DEBUG] about to run command: " + metric_command
     child_env = os.environ.copy()
     child_env["PATH"] = os.path.join(SCRIPT_DIR, "metric-scripts") + ":" + child_env["PATH"]
 
@@ -74,7 +74,7 @@ def measure_metric(config, metric_name, target):
 
     stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
     if args.debug:
-        print >>sys.stderr, "[DEBUG] value (from stdout) was: " + repr(stdout_output)
+        print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
     value = float(stdout_output)
     if "throttle_sleep_seconds" in metric:
         if args.force_sleep != None:
@@ -86,10 +86,10 @@ def measure_metric(config, metric_name, target):
                 sleep_time_str = "%.0f" % throttle_sleep_seconds
             else:
                 sleep_time_str = "%.3f" % throttle_sleep_seconds
-            print >>sys.stderr, "[DEBUG] throttle sleeping for %s seconds" % sleep_time_str
+            print "[DEBUG] throttle sleeping for %s seconds" % sleep_time_str
         time.sleep(throttle_sleep_seconds)
     if args.debug:
-        print >>sys.stderr, ""
+        print ""
     return value
 
 
