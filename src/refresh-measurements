@@ -75,7 +75,15 @@ def measure_metric(config, metric_name, target):
     stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
     if args.debug:
         print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
-    value = float(stdout_output)
+    try:
+        value = float(stdout_output)
+    except ValueError:
+        # The metric script printed something other than a number to stdout.
+        # Possibly an error message or similar, at any rate we have failed to
+        # make this particular measurement, suppress error so we can move on to
+        # the next scheduled measurement instead.
+        value = None
+        pass
     if "throttle_sleep_seconds" in metric:
         if args.force_sleep != None:
             throttle_sleep_seconds = args.force_sleep
@@ -199,9 +207,13 @@ def refresh_measurements(config, measured_data, jsdata):
             else:
                 print "[%(current)d/%(total)d] measuring '%(metric_name)s'" % print_dict
         value = measure_metric(config, metric_name, target)
-        measured_data.add_data(metric_name, target, value)
-        measured_data.save_to_disk()
-        jsdata.save_to_disk()
+
+        # value == None means that the measurement failed (e.g. a metric script
+        # printed non-number to stdout), start the next measurement instead.
+        if value:
+            measured_data.add_data(metric_name, target, value)
+            measured_data.save_to_disk()
+            jsdata.save_to_disk()
 
 def main():
     config = eval(open(os.path.join(SCRIPT_DIR, "..", "..", "config.pyon")).read())
