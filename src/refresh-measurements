@@ -49,8 +49,21 @@ def human_readable_time_span(seconds):
 
     return output
 
+def add_to_path_if_exists(target_env, folder):
+    if os.path.exists(folder):
+        if args.debug:
+            print "[DEBUG] adding '%s' to PATH" % folder
+        target_env["PATH"] = folder + ":" + target_env["PATH"]
+
+
 def measure_metric(config, metric_name, target):
     metric = config["metrics"][metric_name]
+
+    child_env = os.environ.copy()
+    add_to_path_if_exists(child_env, os.path.join(SCRIPT_DIR, "metric-scripts"))
+    add_to_path_if_exists(child_env, os.path.join(SCRIPT_DIR, "../../external-metric-scripts"))
+    add_to_path_if_exists(child_env, "/usr/local/bin")
+
     command_template = metric["cmd"]
     if args.debug:
         print "[DEBUG] command template: " + command_template
@@ -63,14 +76,6 @@ def measure_metric(config, metric_name, target):
         sys.exit(1)
     if args.debug:
         print "[DEBUG] about to run command: " + metric_command
-    child_env = os.environ.copy()
-    child_env["PATH"] = os.path.join(SCRIPT_DIR, "metric-scripts") + ":" + child_env["PATH"]
-
-    external_scripts_dir = os.path.join(SCRIPT_DIR, "../../external-metric-scripts")
-    if os.path.exists(external_scripts_dir):
-        if args.debug:
-            print "[DEBUG] adding '%s' to PATH" % external_scripts_dir
-        child_env["PATH"] = external_scripts_dir + ":" + child_env["PATH"]
 
     stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
     if args.debug:
