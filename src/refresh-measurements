@@ -246,11 +246,14 @@ def main():
         jsdata.save_to_disk()
     else:
         measurement_start_time = datetime.datetime.now()
+        if not args.quiet:
+            print "Measurement started: " + str(measurement_start_time)[:19]
+
         refresh_measurements(config, measured_data, jsdata)
+
         measurement_stop_time = datetime.datetime.now()
         measurement_seconds = (measurement_stop_time - measurement_start_time).total_seconds()
         if not args.quiet:
-            print "Measurement started: " + str(measurement_start_time)[:19]
             print "Measurement stopped: " + str(measurement_stop_time)[:19]
             print "Measurement took: " + human_readable_time_span(measurement_seconds)
 
