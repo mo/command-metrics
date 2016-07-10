@@ -9,7 +9,6 @@
 # -- ability to zoom specific date range
 # -- minimum_remeasurement_interval per metric
 # -- thicker lines
-# -- change "charts" in config to be an array
 # -- Y value zoom
 
 import os
@@ -157,9 +156,9 @@ class JsData(object):
         jsdata_tempfile_oshandle, jsdata_tempfile_name = tempfile.mkstemp()
         with open(jsdata_tempfile_name, "w") as jsdata_temp_file:
             jsdata_temp_file.write("allChartData = [\n")
-            for chart_name, chart in self.config["charts"].iteritems():
+            for chart in self.config["charts"]:
                 jsdata_temp_file.write("{\n")
-                jsdata_temp_file.write("  'chartKey': '%s',\n" % chart_name)
+                jsdata_temp_file.write("  'chartKey': '%s',\n" % chart["chart_id"])
                 jsdata_temp_file.write("  'chartTitle': '%s',\n" % chart["chart_title"])
                 jsdata_temp_file.write("  'chartSeries': [\n")
                 for chart_series in chart["chart_series"]:
@@ -202,7 +201,7 @@ def refresh_measurements(config, measured_data, jsdata):
     selected_metrics = args.metric
 
     todo_list = sets.Set()
-    for chart_name, chart in config["charts"].iteritems():
+    for chart in config["charts"]:
         for series in chart["chart_series"]:
             metric_name = series["metric"]
             target = series.get("target", None)
