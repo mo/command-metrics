@@ -18,7 +18,6 @@ import sets
 import stat
 import time
 import shutil
-import random
 import pprint
 import tempfile
 import argparse
@@ -168,8 +167,8 @@ class JsData(object):
                         for datapoint in series_data:
                             x_values.append(datapoint["timestamp"])
                             y_values.append(datapoint["value"])
-                        quoted_x_values = ",".join(map(lambda val: "'" + str(val) + "'", x_values))
-                        quoted_y_values = ",".join(map(lambda val: "'" + str(val) + "'", y_values))
+                        quoted_x_values = ",".join(["'" + str(val) + "'" for val in x_values])
+                        quoted_y_values = ",".join(["'" + str(val) + "'" for val in y_values])
                         jsdata_temp_file.write("              'xValues': [\n")
                         jsdata_temp_file.write("                %s\n" % quoted_x_values)
                         jsdata_temp_file.write("              ],\n")
@@ -270,4 +269,3 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         print
-        pass
