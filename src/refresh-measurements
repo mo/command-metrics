@@ -76,7 +76,16 @@ def measure_metric(config, metric_name, target):
     if args.debug:
         print "[DEBUG] about to run command: " + metric_command
 
-    stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
+    try:
+        stdout_output = subprocess.check_output(metric_command, env=child_env, shell=True).strip()
+    except subprocess.CalledProcessError as e:
+        errmsg = ("[WARNING] metric script returned non-zero exit code\n"
+                  + "exitcode: " + str(e.returncode) + "\n"
+                  + "metric: " + metric_name + "\n"
+                  + "target: " + target)
+        print errmsg
+        print >>sys.stderr, errmsg
+        stdout_output = e.output
     if args.debug:
         print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
     try:
