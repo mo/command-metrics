@@ -4,15 +4,19 @@ user="$1"
 attempts_left="17"
 
 while true ; do
-	value="$(twurl /1.1/users/show.json?screen_name=${user} | jq .followers_count)"
-	# value will be "null" if we run into the twitter rate limiting feature
-	if [ "$value" != "null" ]; then
-		echo "$value"
+	response="$(twurl /1.1/users/show.json?screen_name=${user})"
+	followers_count="$(echo $response | jq .followers_count)"
+	if [ "$followers_count" != "null" ]; then
+		echo "$followers_count"
 		exit 0
+	fi
+	if [[ "$response" != *"Rate limit exceeded"* ]]; then
+		echo "ERROR: No such user"
+		exit 1
 	fi
 	attempts_left="$(($attempts_left - 1))"
 	if [ "$attempts_left" == "0" ]; then
-		exit 1
+		exit 2
 	fi
 	sleep 65
 done
