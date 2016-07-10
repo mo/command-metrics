@@ -86,11 +86,12 @@ def measure_metric(config, metric_name, target):
         # Possibly an error message or similar, at any rate we have failed to
         # make this particular measurement, suppress error so we can move on to
         # the next scheduled measurement instead.
-        errmsg = "[ERROR] value printed to stdout by metric script was not a number:"
+        errmsg = ("[ERROR] value printed to stdout by metric script was not a number\n"
+                  + "metric: " + metric_name + "\n"
+                  + "target: " + target + "\n"
+                  + "value: " + stdout_output)
         print errmsg
         print >>sys.stderr, errmsg
-        print stdout_output
-        print >>sys.stderr, stdout_output
         value = None
     if "throttle_sleep_seconds" in metric:
         if args.force_sleep != None:
