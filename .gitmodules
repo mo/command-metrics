@@ -1,0 +1,3 @@
+[submodule "thirdparty/analysis-chart"]
+	path = thirdparty/analysis-chart
+	url = https://github.com/mo/analysis-chart.git

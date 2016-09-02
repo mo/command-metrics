@@ -18,6 +18,23 @@ function getUrlParams()
 	return params
 }
 
+function buildUrlStringFromUrlParams(params) {
+    const new_url = Object.keys(params).sort().map((key) => {
+        const val = params[key];
+        if (val.push) {
+            return val.map((v) => key + '=' + v);
+        }
+        return key + '=' + val;
+    }).reduce((acc, item) => {
+        return acc.concat(item);
+    }, []).join('&');
+    return '?' + new_url;
+}
+
+function reloadWithNewUrlParams(params) {
+    window.location = buildUrlStringFromUrlParams(params);
+}
+
 function bytesToHumanReadableSize(bytes) {
 	var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
 	if (bytes == 0) return 'n/a';

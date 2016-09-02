@@ -16,6 +16,7 @@ import sys
 import sets
 import stat
 import time
+import json
 import shutil
 import pprint
 import tempfile
@@ -169,21 +170,12 @@ class JsData(object):
                         metric = self.config["metrics"][metric_name]
                         jsdata_temp_file.write("            {\n")
                         series_title = metric["title"] % { "target": target }
-                        jsdata_temp_file.write("              'seriesTitle': '%s',\n" % series_title)
-                        jsdata_temp_file.write("              'seriesColor': '%s',\n" % chart_series["color"])
-                        x_values = []
-                        y_values = []
-                        for datapoint in series_data:
-                            x_values.append(datapoint["timestamp"])
-                            y_values.append(datapoint["value"])
-                        quoted_x_values = ",".join(["'" + str(val) + "'" for val in x_values])
-                        quoted_y_values = ",".join(["'" + str(val) + "'" for val in y_values])
-                        jsdata_temp_file.write("              'xValues': [\n")
-                        jsdata_temp_file.write("                %s\n" % quoted_x_values)
-                        jsdata_temp_file.write("              ],\n")
-                        jsdata_temp_file.write("              'yValues': [\n")
-                        jsdata_temp_file.write("                %s\n" % quoted_y_values)
-                        jsdata_temp_file.write("              ],\n")
+                        jsdata_temp_file.write("              'name': '%s',\n" % series_title)
+                        jsdata_temp_file.write("              'color': '%s',\n" % chart_series["color"])
+                        jsdata_temp_file.write("              'data': \n")
+                        data = json.dumps([{"x": int(datetime.datetime.strptime(datapoint["timestamp"], "%Y-%m-%d %H:%M:%S").strftime("%s")), "y": datapoint["value"]} for datapoint in series_data])
+                        jsdata_temp_file.write("                %s\n" % data)
+                        jsdata_temp_file.write("              ,\n")
                         jsdata_temp_file.write("            },\n")
                 jsdata_temp_file.write("  ]\n")
                 jsdata_temp_file.write("},\n")
