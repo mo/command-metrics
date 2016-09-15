@@ -56,6 +56,14 @@ if (!selectedChart) {
 
 populateSelectBox(allChartData, selectedChart);
 
+selectedChart.chartSeries = selectedChart.chartSeries.filter((serie) => {
+    if (serie.data.length == 0) {
+        console.warn(`WARNING: serie with name "${serie.name}" has empty data array, it will be ignored.`);
+        return false;
+    }
+    return true;
+})
+
 const allSeries = selectedChart.chartSeries;
 const allSeriesYMin = d3.min(allSeries, serie => d3.min(serie.data, datapoint => datapoint.y));
 const allSeriesYMax = d3.max(allSeries, serie => d3.max(serie.data, datapoint => datapoint.y));
@@ -65,6 +73,9 @@ const agElement = document.querySelector('#analysis-chart-placeholder');
 const analysisChart = new AnalysisChart({
     element: agElement,
     series: allSeries,
+    rightColumnWidth: 300,
+    width: window.innerWidth - 300,
+    height: window.innerHeight - 300,
     xFormatter: (x) => AnalysisChart.timestampToDatetimeString(x)
 });
 

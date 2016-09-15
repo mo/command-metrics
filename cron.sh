@@ -9,5 +9,5 @@
 #
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-$SCRIPT_DIR/src/refresh-measurements -s 3 >> /var/log/command-metrics-cron.log 2>&1
+$SCRIPT_DIR/src/refresh-measurements measure >> /var/log/command-metrics-cron.log 2>&1
 
