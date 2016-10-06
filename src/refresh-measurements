@@ -254,6 +254,12 @@ def get_year_month_day(some_datetime):
     return (some_datetime.strftime("%Y"), some_datetime.strftime("%m"), some_datetime.strftime("%d"))
 
 def subcommand_measure():
+    if args.metric:
+        for metric_name in args.metric:
+            if not any(serie["metric_name"] == metric_name for serie in config["unique_series"]):
+                print "ERROR: invalid metric name specified in --metric/-m parameter: " + metric_name
+                sys.exit(1)
+
     # Use unbuffered stdout
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
