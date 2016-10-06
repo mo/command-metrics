@@ -60,7 +60,7 @@ def add_to_path_if_exists(target_env, folder):
     if os.path.exists(folder):
         if args.verbose:
             print "[DEBUG] adding '%s' to PATH" % folder
-        target_env["PATH"] = folder + ":" + target_env["PATH"]
+        target_env["PATH"] = target_env["PATH"] + ":" + folder
 
 def mkdir_p(path):
     try:
