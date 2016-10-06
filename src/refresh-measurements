@@ -229,7 +229,7 @@ def measure_all_metrics():
             todo_list.add((metric_name, target))
     todo_len = len(todo_list)
     if args.verbose:
-        print "[DEBUG prepared todo list of %d things to measure" % todo_len
+        print "[DEBUG] prepared todo list of %d things to measure" % todo_len
 
     for (idx, (metric_name, target)) in enumerate(todo_list):
         if not args.quiet:
