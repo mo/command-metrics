@@ -213,29 +213,17 @@ class MeasuredData(object):
         return self.data.pop(series_name, None) != None
 
 
-def measure_all_metrics():
+def measure_series(selected_series):
     day_dirs_written_to = set()
-
-    # If "--metric foo --metric yada" is passed, then only re-take measurements
-    # for those metrics, if no such argument is passed "selected_metrics" will
-    # be set to None and new measurements for all metrics will be taken.
-    selected_metrics = args.metric
-
-    todo_list = sets.Set()
-    for serie in config["unique_series"]:
-        metric_name = serie["metric_name"]
-        target = serie.get("target", None)
-        if not selected_metrics or metric_name in selected_metrics:
-            todo_list.add((metric_name, target))
-    todo_len = len(todo_list)
+    total = len(selected_series)
     if args.verbose:
-        print "[DEBUG] prepared todo list of %d things to measure" % todo_len
+        print "[DEBUG] prepared todo list of %d things to measure" % total
 
-    for (idx, (metric_name, target)) in enumerate(todo_list):
+    for (idx, (metric_name, target)) in enumerate(selected_series):
         if not args.quiet:
             print_dict = {
                 "current": idx+1,
-                "total": todo_len,
+                "total": total,
                 "metric_name": metric_name,
                 "target": target,
             }
@@ -268,14 +256,42 @@ def subcommand_measure():
                 print "ERROR: invalid metric name specified in --metric/-m parameter: " + metric_name
                 sys.exit(1)
 
+    if args.chart:
+        for chart_id in args.chart:
+            if not any(chart["chart_id"] == chart_id for chart in config["charts"]):
+                print "ERROR: invalid chart_id specified in --chart/-c parameter: " + chart_id
+                sys.exit(1)
+
     # Use unbuffered stdout
     sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
+    # If "--metric foo --metric yada" is passed, then only re-take measurements
+    # for those metrics. If --chart foo --chart bar is passed, then re-take
+    # measurements for all series (metric/target pairs) that appears in those
+    # charts. If --metric and --chart parameters are passed simultaneously then
+    # re-take measurements only for series in the passed chart, that is also
+    # using the specified metric.
+    selected_series = set()
+    for chart in config["charts"]:
+        for serie in chart["chart_series"]:
+
+            metric_name = serie["metric"]
+            target = serie.get("target", None)
+
+            if args.metric and not metric_name in args.metric:
+                continue
+
+            if args.chart and not chart["chart_id"] in args.chart:
+                continue
+
+            selected_series.add((metric_name, target))
+
 
     measurement_start_time = datetime.datetime.now()
     if not args.quiet:
         print "Measurement started: " + str(measurement_start_time)[:19]
 
-    day_dirs_written_to = measure_all_metrics()
+    day_dirs_written_to = measure_series(selected_series)
 
     measurement_stoptime = datetime.datetime.now()
     measurement_seconds = (measurement_stoptime - measurement_start_time).total_seconds()
@@ -284,7 +300,7 @@ def subcommand_measure():
         print "Measurement took: " + human_readable_time_span(measurement_seconds)
 
     # day_dirs_written_to will typically be an array of a single day, except for
-    # example if measure_all_metrics() started at 23:50 and took 20 mins to run.
+    # example if measure_series() started at 23:50 and took 20 mins to run.
     update_jscache(day_dirs_written_to)
 
 def subcommand_ls():
@@ -502,7 +518,8 @@ if __name__ == '__main__':
         measure_parser.add_argument("-q", "--quiet", action="store_true")
         measure_parser.add_argument("-v", "--verbose", action="store_true")
         measure_parser.add_argument("-s", "--force-sleep", metavar="SECONDS", type=float)
-        measure_parser.add_argument("-m", "--metric", action="append")
+        measure_parser.add_argument("-m", "--metric", metavar="METRIC_NAME", action="append", help="Refresh measurements for all series using the specified metric (and all associated targets). This parameter can be passed several times.")
+        measure_parser.add_argument("-c", "--chart", metavar="CHART_ID", action="append", help="Refresh measurements for the specified chart. This parameter can be passed several times.")
 
         jscache_parser = subparsers.add_parser("jscache")
         jscache_parser.add_argument("-q", "--quiet", action="store_true")
