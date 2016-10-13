@@ -276,7 +276,7 @@ def subcommand_measure():
         for serie in chart["chart_series"]:
 
             metric_name = serie["metric"]
-            target = serie.get("target", None)
+            target = serie.get("target", "")
 
             if args.metric and not metric_name in args.metric:
                 continue
