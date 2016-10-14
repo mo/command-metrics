@@ -59,8 +59,14 @@ def human_readable_time_span(seconds):
 def add_to_path_if_exists(target_env, folder):
     if os.path.exists(folder):
         if args.verbose:
-            print "[DEBUG] adding '%s' to PATH" % folder
+            print "[DEBUG] add '%s' to PATH" % folder
         target_env["PATH"] = target_env["PATH"] + ":" + folder
+
+def prepend_to_path_if_exists(target_env, folder):
+    if os.path.exists(folder):
+        if args.verbose:
+            print "[DEBUG] preprend '%s' to PATH" % folder
+        target_env["PATH"] = folder + ":" + target_env["PATH"]
 
 def mkdir_p(path):
     try:
@@ -75,7 +81,9 @@ def measure_metric(metric_name, target):
     metric = config["metrics"][metric_name]
 
     child_env = os.environ.copy()
-    add_to_path_if_exists(child_env, os.path.join(SCRIPT_DIR, "metric-scripts"))
+    # Prepend (rather than append) the metric-scripts to $PATH because we want
+    # measurements to have as little dependency on the host machine as possible.
+    prepend_to_path_if_exists(child_env, os.path.join(SCRIPT_DIR, "metric-scripts"))
     external_scripts_root = os.path.join(SCRIPT_DIR, "../../external-metric-scripts")
     # If your metrics require scripts for different git repositories you can add
     # each such git repo as a submodule under the "external-metric-scripts" dir
@@ -84,7 +92,9 @@ def measure_metric(metric_name, target):
     # "external-metric-scripts" without using a git submodule if you want.
     if os.path.isdir(external_scripts_root):
         for dirpath, _, _ in os.walk(external_scripts_root):
-            add_to_path_if_exists(child_env, dirpath)
+            prepend_to_path_if_exists(child_env, dirpath)
+    # Don't prepend this because it's has host specific dependencies, it's added
+    # only as a convenience.
     add_to_path_if_exists(child_env, "/usr/local/bin")
 
     command_template = metric["cmd"]
