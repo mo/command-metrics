@@ -398,7 +398,9 @@ def rebuild_toplevel_jsdata():
                 metric_name = chart_series["metric"]
                 target = chart_series.get("target", None)
                 metric = config["metrics"][metric_name]
-                series_title = metric.get("title", metric["cmd"]) % {"target": target}
+                series_title = chart_series.get("title", None)
+                if not series_title:
+                    series_title = metric.get("title", metric["cmd"]) % {"target": target}
                 jsdata_temp_file.write("            {\n")
                 # using json.dumps() to escape string in case it contains ' and " etc
                 jsdata_temp_file.write("              'name': %s,\n" % json.dumps(series_title))
