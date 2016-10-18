@@ -467,8 +467,12 @@ def subcommand_jscache():
 def get_series_name(metric_name, target):
     concatenated = metric_name + ("_" + target if target else "")
     safe_chars = string.ascii_letters + string.digits + "_"
-    series_name = "".join([ch if ch in safe_chars else "_" for ch in concatenated])
-    series_name = series_name + "_" + hashlib.sha1(concatenated).hexdigest()
+    safe_concatenated = "".join([ch if ch in safe_chars else "_" for ch in concatenated])
+    # Note: using at most 80 chars here means that the final filename will be
+    #       less than 80 + 40 (for hash) + 10 (for hostname) which is less than
+    #       130 which safely below the max filename length on eCryptFS and other
+    #       file system types that might have similar absurd constraints.
+    series_name = safe_concatenated[0:80] + "_" + hashlib.sha1(concatenated).hexdigest()
     series_name = re.sub("__+", "_", series_name)
     # NOTE: series_name will be used as a Javascript identifier, and we
     # also build data filenames using: series_name + "-" + hostname + ".csv"
