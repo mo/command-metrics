@@ -76,7 +76,8 @@ const analysisChart = new AnalysisChart({
     rightColumnWidth: 300,
     width: window.innerWidth - 300,
     height: window.innerHeight - 300,
-    xFormatter: (x) => AnalysisChart.timestampToDatetimeString(x)
+    xFormatter: (x) => AnalysisChart.timestampToDatetimeString(x),
+    annotations: selectedChart.chartAnnotations
 });
 
 analysisChart.onYAxisScalingChanged((newMode) => {

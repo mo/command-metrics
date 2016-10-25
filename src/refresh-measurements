@@ -394,6 +394,7 @@ def rebuild_toplevel_jsdata():
             jsdata_temp_file.write("    'chartKey': '%s',\n" % chart["chart_id"])
             jsdata_temp_file.write("    'chartTitle': %s,\n" % json.dumps(chart["chart_title"]))
             jsdata_temp_file.write("    'chartSeries': [\n")
+
             for chart_series in chart["chart_series"]:
                 metric_name = chart_series["metric"]
                 target = chart_series.get("target", None)
@@ -407,7 +408,17 @@ def rebuild_toplevel_jsdata():
                 jsdata_temp_file.write("              'color': '%s',\n" % chart_series["color"])
                 jsdata_temp_file.write("              'data': %s\n" % get_series_name(metric_name, target))
                 jsdata_temp_file.write("            },\n")
-            jsdata_temp_file.write("    ]\n")
+            jsdata_temp_file.write("    ],\n")
+
+            if "annotations" in chart:
+                jsdata_temp_file.write("    chartAnnotations: {\n")
+                for annotation_set_name in chart["annotations"]:
+                    annotations = config["annotation_sets"][annotation_set_name]
+                    for date, description in annotations.iteritems():
+                        timestamp = datetime.datetime.strptime(date, "%Y-%m-%d").strftime("%s")
+                        jsdata_temp_file.write("            '%s': '%s',\n" % (timestamp, description))
+                jsdata_temp_file.write("    }\n")
+
             jsdata_temp_file.write("  },\n")
         jsdata_temp_file.write("]\n")
 
