@@ -93,7 +93,7 @@ def measure_metric(metric_name, target):
     if os.path.isdir(external_scripts_root):
         for dirpath, _, _ in os.walk(external_scripts_root, followlinks=True):
             prepend_to_path_if_exists(child_env, dirpath)
-    # Don't prepend this because it's has host specific dependencies, it's added
+    # Don't prepend this because it has host specific dependencies, it's added
     # only as a convenience.
     add_to_path_if_exists(child_env, "/usr/local/bin")
 
