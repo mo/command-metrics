@@ -11,5 +11,9 @@
 #
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-$SCRIPT_DIR/src/refresh-measurements measure >> $SCRIPT_DIR/../command-metrics-$(hostname).log 2>&1
 
+if [ "$1" == "" ]; then
+	$SCRIPT_DIR/src/refresh-measurements measure >> $SCRIPT_DIR/../command-metrics-$(hostname).log 2>&1
+else
+	$SCRIPT_DIR/src/refresh-measurements "$@" >> $SCRIPT_DIR/../command-metrics-$(hostname).log 2>&1
+fi
