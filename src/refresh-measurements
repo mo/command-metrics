@@ -472,8 +472,13 @@ def subcommand_jscache():
         if not os.path.exists(os.path.join(data_root_dir, year, month, day)):
             days_to_update |= {(year, month, day)}
 
-    # Rebuild jscache where needed.
-    update_jscache(days_to_update)
+    if days_to_update:
+        # Rebuild jscache where needed (including rebuilding top-level js data).
+        update_jscache(days_to_update)
+    else:
+        # Even if no actual js data changed, regenerate top level because maybe
+        # some color changed in config.pyon, or an annotation was added etc.
+        rebuild_toplevel_jsdata()
 
 def get_series_name(metric_name, target):
     concatenated = metric_name + ("_" + target if target else "")
