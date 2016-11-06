@@ -140,18 +140,18 @@ def measure_metric(metric_name, target):
                   + "       stderr: " + repr(stderr_output) + "\n")
         print errmsg
         value = None
-    if "throttle_sleep_seconds" in metric:
+    if "cmd_sleep_seconds" in metric:
         if args.force_sleep != None:
-            throttle_sleep_seconds = args.force_sleep
+            cmd_sleep_seconds = args.force_sleep
         else:
-            throttle_sleep_seconds = float(metric["throttle_sleep_seconds"])
+            cmd_sleep_seconds = float(metric["cmd_sleep_seconds"])
         if args.verbose:
-            if ("%.3f" % throttle_sleep_seconds).endswith(".000"):
-                sleep_time_str = "%.0f" % throttle_sleep_seconds
+            if ("%.3f" % cmd_sleep_seconds).endswith(".000"):
+                sleep_time_str = "%.0f" % cmd_sleep_seconds
             else:
-                sleep_time_str = "%.3f" % throttle_sleep_seconds
+                sleep_time_str = "%.3f" % cmd_sleep_seconds
             print "[DEBUG] throttle sleeping for %s seconds" % sleep_time_str
-        time.sleep(throttle_sleep_seconds)
+        time.sleep(cmd_sleep_seconds)
     if args.verbose:
         print ""
     return value
