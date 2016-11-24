@@ -415,7 +415,10 @@ def rebuild_toplevel_jsdata():
                 for annotation_set_name in chart["annotations"]:
                     annotations = config["annotation_sets"][annotation_set_name]
                     for date, description in annotations.iteritems():
-                        timestamp = datetime.datetime.strptime(date, "%Y-%m-%d").strftime("%s")
+                        if len(date) == 10:
+                            timestamp = datetime.datetime.strptime(date, "%Y-%m-%d").strftime("%s")
+                        else:
+                            timestamp = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S").strftime("%s")
                         jsdata_temp_file.write("            '%s': %s,\n" % (timestamp, json.dumps(description)))
                 jsdata_temp_file.write("    }\n")
 
