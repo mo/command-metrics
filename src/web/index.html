@@ -18,6 +18,10 @@
 <script src="../../../allChartData.js"></script>
 <script src="command-metrics.js"></script>
 <style>
+body {
+    margin-left: 0;
+    margin-right: 0;
+}
 #chart-select {
     font-size: 12pt;
     margin-bottom: 15px;
@@ -73,9 +77,9 @@ const agElement = document.querySelector('#analysis-chart-placeholder');
 const analysisChart = new AnalysisChart({
     element: agElement,
     series: allSeries,
-    rightColumnWidth: 300,
-    width: window.innerWidth - 300,
-    height: window.innerHeight - 300,
+    rightColumnWidth: 350,
+    width: window.innerWidth,
+    height: window.innerHeight - 160,
     xFormatter: (x) => AnalysisChart.timestampToDatetimeString(x),
     annotations: selectedChart.chartAnnotations
 });
