@@ -383,10 +383,12 @@ def rebuild_toplevel_jsdata():
     with open(jsdata_tempfile_name, "w") as jsdata_temp_file:
         for serie in config["unique_series"]:
             series_name = serie["name"]
-            jsdata_temp_file.write("const %s = [\n" % series_name)
             series_jsv = os.path.join(jscache_root_dir, series_name + ".jsv")
-            shutil.copyfileobj(open(series_jsv, 'rb'), jsdata_temp_file)
-            jsdata_temp_file.write("\n];\n\n")
+            if os.path.exists(series_jsv):
+                # series_jsv wont exist if it was added to config.json but no measurement has been done yet
+                jsdata_temp_file.write("const %s = [\n" % series_name)
+                shutil.copyfileobj(open(series_jsv, 'rb'), jsdata_temp_file)
+                jsdata_temp_file.write("\n];\n\n")
 
         jsdata_temp_file.write("allChartData = [\n")
         for chart in config["charts"]:
