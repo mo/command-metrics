@@ -166,7 +166,12 @@ class MeasuredData(object):
         self.data = {}
 
     @staticmethod
-    def append_data_to_file(timestamp, value, csv_filepath):
+    def append_data_to_file(metric_name, target, timestamp, value):
+        (year, month, day) = get_year_month_day(timestamp)
+        target_data_dir = os.path.join(data_root_dir, year, month, day)
+        series_name = get_series_name(metric_name, target)
+        csv_filepath = os.path.join(target_data_dir, series_name + SERIES_HOSTNAME_FILENAME_SEPARATOR + platform.node() + ".csv")
+
         timestamp_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
         mkdir_p(os.path.dirname(csv_filepath))
         with open(csv_filepath, "ab") as data_file:
@@ -246,11 +251,8 @@ def measure_series(selected_series):
         # printed non-number to stdout), start the next measurement instead.
         if value != None:
             now = datetime.datetime.now()
+            MeasuredData.append_data_to_file(metric_name, target, now, value)
             (year, month, day) = get_year_month_day(now)
-            data_dir_today = os.path.join(data_root_dir, year, month, day)
-            series_name = get_series_name(metric_name, target)
-            csv_filepath = os.path.join(data_dir_today, series_name + SERIES_HOSTNAME_FILENAME_SEPARATOR + platform.node() + ".csv")
-            MeasuredData.append_data_to_file(now, value, csv_filepath)
             day_dirs_written_to |= {(year, month, day)}
 
     return day_dirs_written_to
@@ -310,6 +312,40 @@ def subcommand_measure():
 
     # day_dirs_written_to will typically be an array of a single day, except for
     # example if measure_series() started at 23:50 and took 20 mins to run.
+    update_jscache(day_dirs_written_to)
+
+def subcommand_import():
+    if not any(serie["metric_name"] == args.metric_name for serie in config["unique_series"]):
+        print "ERROR: invalid metric name specified: " + args.metric_name
+        sys.exit(1)
+
+    if args.target:
+        if not any(serie["target"] == args.target for serie in config["unique_series"]):
+            print "ERROR: invalid target specified in --target/-t parameter: " + args.target
+            sys.exit(1)
+
+    if not os.path.exists(args.csv_file):
+        print "ERROR: file not found '%s'" % args.csv_file
+        sys.exit(1)
+
+    day_dirs_written_to = set()
+
+    with open(args.csv_file, 'rb') as csvfile:
+        csv_reader = csv.reader(csvfile, delimiter=MeasuredData.CSV_DELIMITER_CHAR, quotechar=MeasuredData.CSV_QUOTE_CHAR)
+        for row in csv_reader:
+            try:
+                [timestamp_str, value] = row
+
+                timestamp = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                MeasuredData.append_data_to_file(args.metric_name, args.target, timestamp, value)
+                (year, month, day) = get_year_month_day(timestamp)
+                day_dirs_written_to |= {(year, month, day)}
+
+            except ValueError as e:
+                print "ERROR: invalid line in incoming data file: " + args.csv_file
+                print "Details: " + repr(e)
+                sys.exit(1)
+
     update_jscache(day_dirs_written_to)
 
 def subcommand_ls():
@@ -533,6 +569,8 @@ def load_config():
 def main():
     if args.subcommand == "measure":
         subcommand_measure()
+    elif args.subcommand == "import":
+        subcommand_import()
     elif args.subcommand == "ls":
         subcommand_ls()
     elif args.subcommand == "jscache":
@@ -556,6 +594,13 @@ if __name__ == '__main__':
         measure_parser.add_argument("-s", "--force-sleep", metavar="SECONDS", type=float)
         measure_parser.add_argument("-m", "--metric", metavar="METRIC_NAME", action="append", help="Refresh measurements for all series using the specified metric (and all associated targets). This parameter can be passed several times.")
         measure_parser.add_argument("-c", "--chart", metavar="CHART_ID", action="append", help="Refresh measurements for the specified chart. This parameter can be passed several times.")
+
+        measure_parser = subparsers.add_parser("import")
+        measure_parser.add_argument("metric_name", metavar="METRIC_NAME", type=str, help="Metric name under which data should be stored (must already exist).")
+        measure_parser.add_argument("csv_file", metavar="CSV_FILE", type=str, help="CSV file containing data to be imported (lines must be in 'YYYY-MM-DD HH:MM:SS,value' format).")
+        measure_parser.add_argument("-q", "--quiet", action="store_true")
+        measure_parser.add_argument("-v", "--verbose", action="store_true")
+        measure_parser.add_argument("-t", "--target", metavar="TARGET", type=str, default="", help="Optional target name used when storing the data (must already exist).")
 
         jscache_parser = subparsers.add_parser("jscache")
         jscache_parser.add_argument("-q", "--quiet", action="store_true")
