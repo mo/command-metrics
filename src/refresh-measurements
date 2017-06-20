@@ -111,10 +111,10 @@ def measure_metric(metric_name, target):
     if args.verbose:
         print "[DEBUG] about to run command: " + metric_command
 
-    proc = subprocess.Popen(metric_command, env=child_env, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(metric_command, env=child_env, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout_output, stderr_output = proc.communicate()
     stdout_output = stdout_output.strip()
-    stderr_output = stderr_output.strip() if stderr_output else None
+    stderr_output = stderr_output.strip() if stderr_output else ''
     if proc.returncode != 0:
         errmsg = ("[WARNING] metric command returned non-zero exit code\n"
                   + "          exitcode: " + str(proc.returncode) + "\n"
@@ -134,7 +134,7 @@ def measure_metric(metric_name, target):
         errmsg = ("[ERROR] value printed to stdout by metric command was not a number\n"
                   + "       metric: " + metric_name + "\n"
                   + "       metric command: " + metric_command + "\n"
-                  + "       target: " + target + "\n"
+                  + "       target: " + repr(target) + "\n"
                   + "       stdout: " + repr(stdout_output) + "\n"
                   + "       stderr: " + repr(stderr_output) + "\n")
         print errmsg
