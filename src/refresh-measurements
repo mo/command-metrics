@@ -71,6 +71,16 @@ def mkdir_p(path):
         else:
             raise
 
+def print_msg_with_details(msg, exitcode, metric_command, metric_name, target, stdout, stderr):
+    fullmsg = (msg + "\n"
+               + "          metric: " + metric_name + "\n"
+               + "          target: " + target + "\n"
+               + "          metric command: " + metric_command + "\n"
+               + "          exitcode: " + str(exitcode) + "\n"
+               + "          stdout: " + repr(stdout) + "\n"
+               + "          stderr: " + repr(stderr) + "\n")
+    print fullmsg
+
 def measure_metric(metric_name, target):
     metric = config["metrics"][metric_name]
 
@@ -124,12 +134,7 @@ def measure_metric(metric_name, target):
     stdout_output = stdout_output.strip()
     stderr_output = stderr_output.strip() if stderr_output else ''
     if proc.returncode != 0:
-        errmsg = ("[WARNING] metric command returned non-zero exit code\n"
-                  + "          exitcode: " + str(proc.returncode) + "\n"
-                  + "          metric command: " + metric_command + "\n"
-                  + "          metric: " + metric_name + "\n"
-                  + "          target: " + target + "\n")
-        print errmsg
+        print_msg_with_details("[WARNING] metric command returned non-zero exit code", proc.returncode, metric_command, metric_name, target, stdout_output, stderr_output)
     if args.verbose:
         print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
     try:
@@ -139,14 +144,21 @@ def measure_metric(metric_name, target):
         # Possibly an error message or similar, at any rate we have failed to
         # make this particular measurement, suppress error so we can move on to
         # the next scheduled measurement instead.
-        errmsg = ("[ERROR] value printed to stdout by metric command was not a number\n"
-                  + "       metric: " + metric_name + "\n"
-                  + "       metric command: " + metric_command + "\n"
-                  + "       target: " + repr(target) + "\n"
-                  + "       stdout: " + repr(stdout_output) + "\n"
-                  + "       stderr: " + repr(stderr_output) + "\n")
-        print errmsg
+        print_msg_with_details("[ERROR] value printed to stdout by metric command was not a number", proc.returncode, metric_command, metric_name, target, stdout_output, stderr_output)
         value = None
+
+    require_value_above = metric.get("require", {}).get("value", {}).get("above", None)
+    require_value_below = metric.get("require", {}).get("value", {}).get("below", None)
+
+    if (require_value_above != None and value <= require_value_above) or \
+       (require_value_below != None and value >= require_value_below):
+        if args.verbose:
+            print_msg_with_details("[DEBUG] value %s is outside of above/below range "
+                                   "limits in metric config, will not save to disk." % repr(value),
+                                   proc.returncode, metric_command, metric_name, target,
+                                   stdout_output, stderr_output)
+        value = None
+
     if args.verbose:
         print ""
     return value
