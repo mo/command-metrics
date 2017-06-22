@@ -226,10 +226,13 @@ class MeasuredData(object):
             writer = csv.writer(data_file, delimiter=MeasuredData.CSV_DELIMITER_CHAR, quotechar=MeasuredData.CSV_QUOTE_CHAR, quoting=csv.QUOTE_MINIMAL)
             for series_name, series_data in self.data.iteritems():
                 for [timestamp_str, value] in series_data:
-                    writer.writerow([series_name, timestamp_str, value])
+                    writer.writerow([timestamp_str, value])
 
     def get_series_data(self, series_name):
         return self.data.get(series_name, [])
+
+    def set_series_data(self, series_name, series_data):
+        self.data[series_name] = series_data
 
     # Returns True is something was deleted.
     def delete_series(self, series_name):
@@ -268,6 +271,83 @@ def measure_series(selected_series):
 
 def get_year_month_day(some_datetime):
     return (some_datetime.strftime("%Y"), some_datetime.strftime("%m"), some_datetime.strftime("%d"))
+
+def find_csv_days():
+    csv_days = []
+    for day_dir in glob.glob(os.path.join(data_root_dir, "*/*/*")):
+        m = re.search("/([0-9]{4})/([0-9]{2})/([0-9]{2})$", day_dir)
+        if not m:
+            print "WARNING: junk in data dir at: " + day_dir
+            continue
+        year, month, day = m.groups()
+        csv_days.append([year, month, day, day_dir])
+    return csv_days
+
+def subcommand_delete():
+    if not args.chart and not args.metric and not args.target:
+        print "ERROR: You must specify at least one argument that specifies what to delete, i.e. --chart, --metric, --target or a combination of those."
+        print "       Run subcommand delete with --help for more information."
+        sys.exit(1)
+
+    if args.metric and not any(serie["metric_name"] == args.metric for serie in config["unique_series"]):
+        print "ERROR: invalid metric name specified in --metric/-m parameter: " + args.metric
+        sys.exit(1)
+
+    if args.target and not any(serie["target"] == args.target for serie in config["unique_series"]):
+        print "ERROR: invalid target specified in --target/-t parameter: " + args.target
+        sys.exit(1)
+
+    if args.chart and not any(chart["chart_id"] == args.chart for chart in config["charts"]):
+        print "ERROR: invalid chart_id specified in --chart/-c parameter: " + args.chart
+        sys.exit(1)
+
+    selected_series = set()
+    for chart in config["charts"]:
+        if args.chart and chart["chart_id"] != args.chart:
+            continue
+
+        for serie in chart["chart_series"]:
+
+            metric_name = serie["metric"]
+            target = serie.get("target", "")
+
+            if args.metric and metric_name != args.metric:
+                continue
+
+            if args.target and target != args.target:
+                continue
+
+            selected_series.add(get_series_name(metric_name, target))
+
+    days_to_update = set()
+    for [year, month, day, day_dir] in find_csv_days():
+        for csv_file in os.listdir(day_dir):
+            if not csv_file.endswith(".csv"):
+                print "WARNING: junk file in data dir at: " + os.path.join(day_dir, csv_file)
+                continue
+            csv_file_series_name, _ = csv_file.split(SERIES_HOSTNAME_FILENAME_SEPARATOR, 1)
+            if csv_file_series_name in selected_series:
+                csv_filepath = os.path.join(day_dir, csv_file)
+                loaded_csv = MeasuredData.load_from_file(csv_filepath)
+                original_series_data = loaded_csv.get_series_data(csv_file_series_name)
+
+                def should_delete_datapoint(value):
+                    if args.value != None and value != args.value:
+                        return False
+                    if args.value_above != None and value <= args.value_above:
+                        return False
+                    if args.value_below != None and value >= args.value_below:
+                        return False
+                    return True
+
+                updated_series_data = [(timestamp_str, value) for [timestamp_str, value] in original_series_data if not should_delete_datapoint(float(value))]
+                if len(original_series_data) != len(updated_series_data):
+                    loaded_csv.set_series_data(csv_file_series_name, updated_series_data)
+                    loaded_csv.save_to_file(csv_filepath)
+                    days_to_update |= {(year, month, day)}
+
+    update_jscache(days_to_update)
+
 
 def subcommand_measure():
     if args.metric:
@@ -496,12 +576,7 @@ def update_jscache(days_to_update):
 def subcommand_jscache():
     # Figure out which days that needs to have their jscache entries rebuilt.
     days_to_update = set()
-    for day_dir in glob.glob(os.path.join(data_root_dir, "*/*/*")):
-        m = re.search("/([0-9]{4})/([0-9]{2})/([0-9]{2})$", day_dir)
-        if not m:
-            print "WARNING: junk in data dir at: " + day_dir
-            continue
-        year, month, day = m.groups()
+    for [year, month, day, day_dir] in find_csv_days():
         jscache_day_dir = os.path.join(jscache_root_dir, year, month, day)
         if not os.path.isdir(jscache_day_dir) or os.listdir(jscache_day_dir) == []:
             days_to_update |= {(year, month, day)}
@@ -584,6 +659,8 @@ def main():
         subcommand_ls()
     elif args.subcommand == "jscache":
         subcommand_jscache()
+    elif args.subcommand == "delete":
+        subcommand_delete()
     elif args.subcommand == "help":
         top_parser.print_help()
 
@@ -616,6 +693,15 @@ if __name__ == '__main__':
 
         ls_parser = subparsers.add_parser("ls")
         ls_parser.add_argument("-q", "--quiet", action="store_true")
+
+        delete_parser = subparsers.add_parser("delete")
+        delete_parser.add_argument("-q", "--quiet", action="store_true")
+        delete_parser.add_argument("-m", "--metric", metavar="METRIC_NAME", type=str, help="Delete datapoints in series using the specified metric.")
+        delete_parser.add_argument("-t", "--target", metavar="TARGET", type=str, default="", help="Delete datapoints in series with the specified TARGET.")
+        delete_parser.add_argument("-c", "--chart", metavar="CHART_ID", type=str, help="Delete datapoints in series that appear in the chart with CHART_ID (NOTE: this also removes datapoints from other charts if the same series appears in multiple charts).")
+        delete_parser.add_argument("--value-above", metavar="VALUE", type=float, help="Delete datapoints where the value is strictly above VALUE.")
+        delete_parser.add_argument("--value-below", metavar="VALUE", type=float, help="Delete datapoints where the value is strictly below VALUE.")
+        delete_parser.add_argument("--value", metavar="VALUE", type=float, help="Delete datapoints where the value is VALUE.")
 
         subparsers.add_parser("help")
 
