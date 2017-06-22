@@ -197,7 +197,8 @@ class MeasuredData(object):
                     self.data.setdefault(series_name, []).append((timestamp_str, value))
                 except ValueError as e:
                     print "ERROR: invalid line in incoming data file: " + datafile
-                    print "Details: " + repr(e)
+                    print "Line parts: " + repr(row)
+                    print "Error details: " + repr(e)
                     sys.exit(1)
 
     def sort(self):
