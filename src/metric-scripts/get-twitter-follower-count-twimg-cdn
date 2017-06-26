@@ -1,0 +1,5 @@
+#!/bin/bash
+
+user="$1"
+
+curl -s 'https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names='"$user" | jq '.[0].followers_count'
