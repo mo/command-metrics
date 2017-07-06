@@ -531,7 +531,8 @@ def rebuild_toplevel_jsdata():
                 jsdata_temp_file.write("            {\n")
                 # using json.dumps() to escape string in case it contains ' and " etc
                 jsdata_temp_file.write("              'name': %s,\n" % json.dumps(series_title))
-                jsdata_temp_file.write("              'color': '%s',\n" % chart_series["color"])
+                if "color" in chart_series:
+                    jsdata_temp_file.write("              'color': '%s',\n" % chart_series["color"])
                 jsdata_temp_file.write("              'data': %s\n" % get_series_name(metric_name, target))
                 jsdata_temp_file.write("            },\n")
             jsdata_temp_file.write("    ],\n")
