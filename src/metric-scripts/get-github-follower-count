@@ -1,0 +1,20 @@
+#!/bin/bash
+
+TARGET_USER="$1"
+attempts_left="17"
+
+while true ; do
+	response="$(curl -s -H 'Accept: application/vnd.github.v3+json' https://api.github.com/users/$TARGET_USER/followers)"
+	echo $response
+	if [[ "$(echo $response | jq .message)" != *"rate limit"* ]]; then
+		followers_count="$(echo $response | jq length)"
+		echo $followers_count
+		exit 0
+	fi
+	attempts_left="$(($attempts_left - 1))"
+	if [ "$attempts_left" == "0" ]; then
+		exit 2
+	fi
+	sleep 65
+done
+
