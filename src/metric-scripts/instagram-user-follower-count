@@ -1,0 +1,9 @@
+#!/bin/bash
+SCRIPT_DIR=$(dirname $0)
+
+INSTAGRAM_USERNAME=$1
+if [ "$INSTAGRAM_USERNAME" == "" ]; then
+	echo "usage: $(basename $0) INSTAGRAM_USERNAME"
+	exit 1
+fi
+$SCRIPT_DIR/instagram-user-info $INSTAGRAM_USERNAME | jq -r .user.followed_by.count
