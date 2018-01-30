@@ -4,4 +4,11 @@ if [ "$REPO_OWNER_AND_NAME" == "" ]; then
 	echo "usage: $(basename $0) REPO_OWNER/REPO_NAME"
 	exit 1
 fi
-runcached -c $((50*60)) curl -s -H 'Accept: application/vnd.github.v3+json' https://api.github.com/repos/$REPO_OWNER_AND_NAME
+if [ -e "$HOME/.github-token" ]; then
+	GITHUB_USERNAME="$(cat $HOME/.github-token | cut -f 1 -d =)"
+	GITHUB_TOKEN="$(cat $HOME/.github-token | cut -f 2 -d =)"
+	AUTH_PARAMS=" --user $GITHUB_USERNAME:$GITHUB_TOKEN "
+else
+	AUTH_PARAMS=""
+fi
+runcached -c $((50*60)) curl -s $AUTH_PARAMS -H 'Accept: application/vnd.github.v3+json' https://api.github.com/repos/$REPO_OWNER_AND_NAME
