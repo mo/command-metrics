@@ -378,6 +378,9 @@ def subcommand_measure():
             metric_name = serie["metric"]
             target = serie.get("target", "")
 
+            if not serie.get("enabled", True):
+                continue
+
             if args.metric and not metric_name in args.metric:
                 continue
 
