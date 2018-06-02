@@ -1,3 +1,4 @@
 #!/bin/bash
 DOMAIN="$1"
-curl -s 'http://data.alexa.com/data?cli=10&dat=snbamz&url='$DOMAIN | hxselect -i "alexa sd popularity" | grep -ioE text=\"[0-9]+\" | cut -d \" -f 2
+#curl -s 'http://data.alexa.com/data?cli=10&dat=snbamz&url='$DOMAIN | hxselect -i "alexa sd popularity" | grep -ioE text=\"[0-9]+\" | cut -d \" -f 2
+curl -s https://www.alexa.com/siteinfo/$DOMAIN | grep -oE '\.concat\([^)]*\)' | cut -c 9- | rev | cut -c 2- | rev | jq '.[3].siteinfo.rank.global'
