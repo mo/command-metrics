@@ -1,0 +1,3 @@
+#!/bin/bash
+URL=$1
+curl -s https://www.googleapis.com/pagespeedonline/v4/runPagespeed?url=$URL | jq '.pageStats | {javascriptResponseBytes,cssResponseBytes,imageResponseBytes}'
