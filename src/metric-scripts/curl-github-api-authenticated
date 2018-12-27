@@ -1,0 +1,9 @@
+#!/bin/bash
+if [ -e "$HOME/.github-token" ]; then
+	GITHUB_USERNAME="$(cat $HOME/.github-token | cut -f 1 -d =)"
+	GITHUB_TOKEN="$(cat $HOME/.github-token | cut -f 2 -d =)"
+	GITHUB_AUTH_PARAMS=" --user $GITHUB_USERNAME:$GITHUB_TOKEN "
+else
+	GITHUB_AUTH_PARAMS=""
+fi
+curl $GITHUB_AUTH_PARAMS "$@"

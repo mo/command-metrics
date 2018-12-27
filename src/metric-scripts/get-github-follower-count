@@ -1,13 +1,13 @@
 #!/bin/bash
 
+SCRIPT_DIR=$(dirname $0)
 TARGET_USER="$1"
 attempts_left="17"
 
 while true ; do
-	response="$(curl -s -H 'Accept: application/vnd.github.v3+json' https://api.github.com/users/$TARGET_USER/followers)"
-	echo $response
+	response="$($SCRIPT_DIR/curl-github-api-authenticated -s -H 'Accept: application/vnd.github.v3+json' https://api.github.com/users/$TARGET_USER)"
 	if [[ "$(echo $response | jq .message)" != *"rate limit"* ]]; then
-		followers_count="$(echo $response | jq length)"
+		followers_count="$(echo $response | jq .followers)"
 		echo $followers_count
 		exit 0
 	fi
