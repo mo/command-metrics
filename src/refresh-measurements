@@ -344,9 +344,9 @@ def subcommand_delete():
 
                 def should_delete_datapoint(timestamp_str, value):
                     timestamp = datetime.datetime.strptime(timestamp_str, FULL_DATETIME_FORMAT)
-                    if args.date_above != None and timestamp <= args.date_above:
+                    if args.date_after != None and timestamp <= args.date_after:
                         return False
-                    if args.date_below != None and date >= args.date_below:
+                    if args.date_before != None and timestamp >= args.date_before:
                         return False
 
                     if args.value != None and value != args.value:
@@ -726,8 +726,8 @@ if __name__ == '__main__':
         delete_parser.add_argument("--value-above", metavar="VALUE", type=float, help="Only delete datapoints where the value is strictly above VALUE.")
         delete_parser.add_argument("--value-below", metavar="VALUE", type=float, help="Only delete datapoints where the value is strictly below VALUE.")
         delete_parser.add_argument("--value", metavar="VALUE", type=float, help="Delete datapoints where the value is VALUE.")
-        delete_parser.add_argument("--date-above", metavar="DATE", type=parse_datetime, help="Only delete datapoints where the date is strictly above DATE.")
-        delete_parser.add_argument("--date-below", metavar="DATE", type=parse_datetime, help="Only delete datapoints where the date is strictly below DATE.")
+        delete_parser.add_argument("--date-before", metavar="DATE", type=parse_datetime, help="Only delete datapoints where the date is strictly before DATE.")
+        delete_parser.add_argument("--date-after", metavar="DATE", type=parse_datetime, help="Only delete datapoints where the date is strictly after DATE.")
 
         subparsers.add_parser("help")
 
