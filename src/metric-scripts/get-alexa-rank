@@ -2,4 +2,7 @@
 DOMAIN="$1"
 #curl -s 'http://data.alexa.com/data?cli=10&dat=snbamz&url='$DOMAIN | hxselect -i "alexa sd popularity" | grep -ioE text=\"[0-9]+\" | cut -d \" -f 2
 #curl -s https://www.alexa.com/siteinfo/$DOMAIN | grep -oE '\.concat\([^)]*\)' | cut -c 9- | rev | cut -c 2- | rev | jq '.[3].siteinfo.rank.global'
-curl -s 'http://data.alexa.com/data?cli=10&dat=snbamz&url='$DOMAIN | hxselect -i "alexa sd popularity::attr(text)" | cut -f 2 -d \"
+
+# if this URL returns "Okay" it means that the source IP is banned
+#curl -s 'http://data.alexa.com/data?cli=10&dat=snbamz&url='$DOMAIN | hxselect -i "alexa sd popularity::attr(text)" | cut -f 2 -d \"
+curl -s https://www.alexa.com/minisiteinfo/$DOMAIN | grep -o 'globe-sm.png.*/div' | cut -f 2- -d '>' | cut -f 1 -d '<' | awk '{print $1}' | tr -d ,
