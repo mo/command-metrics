@@ -368,19 +368,41 @@ def subcommand_delete():
     update_jscache(days_to_update)
 
 
+def get_targetlist_filepath(target_list_id):
+    return os.path.join(data_targetlists_root_dir, get_safe_name(target_list_id) + ".lst")
+
+
+def load_existing_entries_for_dynamic_target_list(target_list_id):
+    target_list_filepath = get_targetlist_filepath(target_list_id)
+    if os.path.exists(target_list_filepath):
+        existing_target_ids = [t for t in open(target_list_filepath).read().splitlines() if t.strip() != ""]
+    else:
+        existing_target_ids = []
+    return existing_target_ids
+
+
 def get_resolved_series_for_chart_series_entry(chart_series_entry):
     resolved_series = []
 
     target_list_id = chart_series_entry.get("target_list", "")
     if target_list_id:
         target_list = config["target_lists"][target_list_id]
-        for target_list_entry in target_list["target_entries"]:
-            target = target_list_entry["target"]
-            resolved_series.append({
-                "metric": chart_series_entry["metric"],
-                "target": target,
-                "color": target_list_entry.get("color", chart_series_entry.get("color", None)),
-            })
+        if target_list["type"] == "static":
+            for target_list_entry in target_list["target_entries"]:
+                target = target_list_entry["target"]
+                resolved_series.append({
+                    "metric": chart_series_entry["metric"],
+                    "target": target,
+                    "color": target_list_entry.get("color", chart_series_entry.get("color", None)),
+                })
+        elif target_list["type"] == "dynamic":
+            target_ids = load_existing_entries_for_dynamic_target_list(target_list_id)
+            for target in target_ids:
+                resolved_series.append({
+                    "metric": chart_series_entry["metric"],
+                    "target": target,
+                    "color": chart_series_entry.get("color", None),
+                })
 
     target = chart_series_entry.get("target", "")
     if target:
@@ -392,6 +414,34 @@ def get_resolved_series_for_chart_series_entry(chart_series_entry):
 
 
     return resolved_series
+
+
+def refresh_dynamic_target_list(target_list_id, refresh_cmd):
+    if args.verbose:
+        print("[DEBUG] will refresh dynamic target list '" + target_list_id +  "' by running command '" + refresh_cmd + "'")
+
+    proc = subprocess.Popen(refresh_cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout_output, stderr_output = proc.communicate()
+    stdout_output = stdout_output.strip()
+    stderr_output = stderr_output.strip() if stderr_output else ''
+    if proc.returncode != 0:
+        print("[WARNING] dynamic target list command returned non-zero exit code")
+        print("                exit code: " + proc.returncode)
+        print("                refresh_cmd: " + refresh_cmd)
+        print("                stdout_output: " + stdout_output)
+        print("                stderr_output: " + stderr_output)
+    if args.verbose:
+        print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
+
+    new_target_ids = [t for t in stdout_output.splitlines() if t.strip() != ""]
+    existing_target_ids = load_existing_entries_for_dynamic_target_list(target_list_id)
+
+    unique_target_ids = list(set(existing_target_ids) | set(new_target_ids))
+
+    mkdir_p(data_targetlists_root_dir)
+    target_list_filepath = get_targetlist_filepath(target_list_id)
+    with open(target_list_filepath, "w") as target_list_file:
+        target_list_file.write("\n".join(unique_target_ids))
 
 
 def subcommand_measure():
@@ -433,6 +483,12 @@ def subcommand_measure():
 
             if args.chart and not chart["chart_id"] in args.chart:
                 continue
+
+            target_list_id = chart_series_declaration.get("target_list", None)
+            if target_list_id:
+                target_list = config["target_lists"][target_list_id]
+                if target_list["type"] == "dynamic":
+                    refresh_dynamic_target_list(target_list_id, target_list["cmd"])
 
             for resolved_serie in get_resolved_series_for_chart_series_entry(chart_series_declaration):
                 selected_series.add((resolved_serie["metric"], resolved_serie["target"]))
@@ -582,7 +638,7 @@ def rebuild_toplevel_jsdata():
                     jsdata_temp_file.write("            {\n")
                     # using json.dumps() to escape string in case it contains ' and " etc
                     jsdata_temp_file.write("              'name': %s,\n" % json.dumps(series_title))
-                    if "color" in resolved_serie:
+                    if resolved_serie.get("color", None):
                         jsdata_temp_file.write("              'color': '%s',\n" % resolved_serie["color"])
                     jsdata_temp_file.write("              'data': %s\n" % get_series_name(metric_name, target))
                     jsdata_temp_file.write("            },\n")
@@ -658,21 +714,27 @@ def subcommand_jscache():
         # some color changed in config.pyon, or an annotation was added etc.
         rebuild_toplevel_jsdata()
 
+
 def get_series_name(metric_name, target):
-    concatenated = metric_name + ("_" + target if target else "")
+    return get_safe_name(metric_name + ("_" + target if target else ""))
+
+
+# Keeps only characters that are safe for use in filenames, and makes sure the
+# safe_name is not too long but still ensures that the safe_name is unique.
+def get_safe_name(full_name):
     safe_chars = string.ascii_letters + string.digits + "_"
-    safe_concatenated = "".join([ch if ch in safe_chars else "_" for ch in concatenated])
+    name_safe_chars = "".join([ch if ch in safe_chars else "_" for ch in full_name])
     # Note: using at most 80 chars here means that the final filename will be
     #       less than 80 + 40 (for hash) + 10 (for hostname) which is less than
     #       130 which safely below the max filename length on eCryptFS and other
     #       file system types that might have similar absurd constraints.
-    series_name = safe_concatenated[0:80] + "_" + hashlib.sha1(concatenated).hexdigest()
-    series_name = re.sub("__+", "_", series_name)
-    # NOTE: series_name will be used as a Javascript identifier, and we
-    # also build data filenames using: series_name + "-" + hostname + ".csv"
-    # and assume everything left of the first "-" is the series_name
-    assert SERIES_HOSTNAME_FILENAME_SEPARATOR not in series_name
-    return series_name
+    safe_name = name_safe_chars[0:80] + "_" + hashlib.sha1(full_name).hexdigest()
+    safe_name = re.sub("__+", "_", safe_name)
+    # NOTE: safe_name will be used as a Javascript identifier, and we
+    # also build data filenames using: safe_name + "-" + hostname + ".csv"
+    # and assume everything left of the first "-" is the safe_name
+    assert SERIES_HOSTNAME_FILENAME_SEPARATOR not in safe_name
+    return safe_name
 
 
 def load_raw_config():
@@ -724,12 +786,13 @@ def main():
 
 if __name__ == '__main__':
     try:
-        config = load_raw_config()
-        resolve_config()
-
         data_series_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "data", "series"))
+        data_targetlists_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "data", "targetlists"))
         jscache_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "jscache"))
         jsdata_filename = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "allChartData.js"))
+
+        config = load_raw_config()
+        resolve_config()
 
         top_parser = argparse.ArgumentParser()
         subparsers = top_parser.add_subparsers(help='subcommands', dest="subcommand")
