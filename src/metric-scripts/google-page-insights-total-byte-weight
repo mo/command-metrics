@@ -1,0 +1,3 @@
+#!/bin/bash
+SCRIPT_DIR=$(dirname $0)
+$SCRIPT_DIR/google-page-insights-json-cached "$@" | jq '.lighthouseResult.audits.diagnostics.details.items[].totalByteWeight'

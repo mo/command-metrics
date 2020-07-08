@@ -1,2 +1,3 @@
 #!/bin/bash
-runcached -c $((50*60)) google-page-insights-json "$@"
+SCRIPT_DIR=$(dirname $0)
+runcached -c $((50*60)) $SCRIPT_DIR/google-page-insights-json "$@"
