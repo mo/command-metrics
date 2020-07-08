@@ -317,18 +317,19 @@ def subcommand_delete():
         if args.chart and chart["chart_id"] != args.chart:
             continue
 
-        for serie in chart["chart_series"]:
+        for chart_series_declaration in chart["chart_series"]:
 
-            metric_name = serie["metric"]
-            target = serie.get("target", "")
+            for resolved_serie in get_resolved_series_for_chart_series_entry(chart_series_declaration):
+                metric_name = resolved_serie["metric"]
+                target = resolved_serie["target"]
 
-            if args.metric and metric_name != args.metric:
-                continue
+                if args.metric and metric_name != args.metric:
+                    continue
 
-            if args.target and target != args.target:
-                continue
+                if args.target and target != args.target:
+                    continue
 
-            selected_series.add(get_series_name(metric_name, target))
+                selected_series.add(get_series_name(metric_name, target))
 
     days_to_update = set()
     for [year, month, day, day_dir] in find_csv_days():
@@ -367,6 +368,32 @@ def subcommand_delete():
     update_jscache(days_to_update)
 
 
+def get_resolved_series_for_chart_series_entry(chart_series_entry):
+    resolved_series = []
+
+    target_list_id = chart_series_entry.get("target_list", "")
+    if target_list_id:
+        target_list = config["target_lists"][target_list_id]
+        for target_list_entry in target_list["target_entries"]:
+            target = target_list_entry["target"]
+            resolved_series.append({
+                "metric": chart_series_entry["metric"],
+                "target": target,
+                "color": target_list_entry.get("color", chart_series_entry.get("color", None)),
+            })
+
+    target = chart_series_entry.get("target", "")
+    if target:
+        resolved_series.append({
+            "metric": chart_series_entry["metric"],
+            "target": target,
+            "color": chart_series_entry.get("color", None),
+        })
+
+
+    return resolved_series
+
+
 def subcommand_measure():
     if args.metric:
         for metric_name in args.metric:
@@ -391,12 +418,14 @@ def subcommand_measure():
     # using the specified metric.
     selected_series = set()
     for chart in config["charts"]:
-        for serie in chart["chart_series"]:
+        # Typically one "series_entry" refers to a single series, but if the
+        # series_entry has a target_list attribute, it results in a set of
+        # series instead.
+        for chart_series_declaration in chart["chart_series"]:
 
-            metric_name = serie["metric"]
-            target = serie.get("target", "")
+            metric_name = chart_series_declaration["metric"]
 
-            if not serie.get("enabled", True):
+            if not chart_series_declaration.get("enabled", True):
                 continue
 
             if args.metric and not metric_name in args.metric:
@@ -405,8 +434,8 @@ def subcommand_measure():
             if args.chart and not chart["chart_id"] in args.chart:
                 continue
 
-            selected_series.add((metric_name, target))
-
+            for resolved_serie in get_resolved_series_for_chart_series_entry(chart_series_declaration):
+                selected_series.add((resolved_serie["metric"], resolved_serie["target"]))
 
     measurement_start_time = datetime.datetime.now()
     if not args.quiet:
@@ -542,20 +571,21 @@ def rebuild_toplevel_jsdata():
             jsdata_temp_file.write("    'chartTitle': %s,\n" % json.dumps(chart["chart_title"]))
             jsdata_temp_file.write("    'chartSeries': [\n")
 
-            for chart_series in chart["chart_series"]:
-                metric_name = chart_series["metric"]
-                target = chart_series.get("target", None)
+            for chart_series_declaration in chart["chart_series"]:
+                metric_name = chart_series_declaration["metric"]
                 metric = config["metrics"][metric_name]
-                series_title = chart_series.get("title", None)
-                if not series_title:
-                    series_title = metric.get("title", metric["cmd"]) % {"target": target}
-                jsdata_temp_file.write("            {\n")
-                # using json.dumps() to escape string in case it contains ' and " etc
-                jsdata_temp_file.write("              'name': %s,\n" % json.dumps(series_title))
-                if "color" in chart_series:
-                    jsdata_temp_file.write("              'color': '%s',\n" % chart_series["color"])
-                jsdata_temp_file.write("              'data': %s\n" % get_series_name(metric_name, target))
-                jsdata_temp_file.write("            },\n")
+                for resolved_serie in get_resolved_series_for_chart_series_entry(chart_series_declaration):
+                    target = resolved_serie.get("target", None)
+                    series_title = resolved_serie.get("title", None)
+                    if not series_title:
+                        series_title = metric.get("title", metric["cmd"]) % {"target": target}
+                    jsdata_temp_file.write("            {\n")
+                    # using json.dumps() to escape string in case it contains ' and " etc
+                    jsdata_temp_file.write("              'name': %s,\n" % json.dumps(series_title))
+                    if "color" in resolved_serie:
+                        jsdata_temp_file.write("              'color': '%s',\n" % resolved_serie["color"])
+                    jsdata_temp_file.write("              'data': %s\n" % get_series_name(metric_name, target))
+                    jsdata_temp_file.write("            },\n")
             jsdata_temp_file.write("    ],\n")
 
             if "annotations" in chart:
@@ -644,21 +674,27 @@ def get_series_name(metric_name, target):
     assert SERIES_HOSTNAME_FILENAME_SEPARATOR not in series_name
     return series_name
 
-def load_config():
+
+def load_raw_config():
     # First load config.pyon as if it was Python dict (i.e. sort of like JSON
     # but trailing commas and #-prefixed comments are allowed)
-    loaded_config = eval(open(os.path.join(SCRIPT_DIR, "..", "..", "config.pyon")).read())
+    raw_config = eval(open(os.path.join(SCRIPT_DIR, "..", "..", "config.pyon")).read())
 
-    # Then add a few things for convenience, like a list of all unique pairs of
+    return raw_config
+
+def resolve_config():
+    # Add a few things for convenience, like a list of all unique pairs of
     # (metric_name, target) that appear in at least one chart, these are the
-    # series that we will measure later on. Each such series is also given a
-    # "name" built from characters that are safe to use as filenames.
+    # series that we will list in the "ls" command and it's also the set of series
+    # that we will use to determine whether a --metric or --target param passed to
+    # "delete" is valid. Each such series is also given a "name" built from
+    # characters that are safe to use as filenames.
     metric_to_list_of_targets_map = {}
-    for chart in loaded_config["charts"]:
-        for chart_series in chart["chart_series"]:
-            metric_name = chart_series["metric"]
-            target = chart_series.get("target", "")
-            metric_to_list_of_targets_map.setdefault(metric_name, set()).add(target)
+    for chart in config["charts"]:
+        for chart_series_declaration in chart["chart_series"]:
+            metric_name = chart_series_declaration["metric"]
+            for resolved_serie in get_resolved_series_for_chart_series_entry(chart_series_declaration):
+                metric_to_list_of_targets_map.setdefault(resolved_serie["metric"], set()).add(resolved_serie["target"])
 
     unique_series = []
     for metric_name, target_list in metric_to_list_of_targets_map.iteritems():
@@ -669,9 +705,7 @@ def load_config():
                 "name": get_series_name(metric_name, target)
             })
 
-    loaded_config["unique_series"] = unique_series
-
-    return loaded_config
+    config["unique_series"] = unique_series
 
 
 def main():
@@ -690,7 +724,9 @@ def main():
 
 if __name__ == '__main__':
     try:
-        config = load_config()
+        config = load_raw_config()
+        resolve_config()
+
         data_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "data"))
         jscache_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "jscache"))
         jsdata_filename = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "allChartData.js"))
