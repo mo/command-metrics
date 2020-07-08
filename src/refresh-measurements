@@ -187,7 +187,7 @@ class MeasuredData(object):
     @staticmethod
     def append_data_to_file(metric_name, target, timestamp, value):
         (year, month, day) = get_year_month_day(timestamp)
-        target_data_dir = os.path.join(data_root_dir, year, month, day)
+        target_data_dir = os.path.join(data_series_root_dir, year, month, day)
         series_name = get_series_name(metric_name, target)
         csv_filepath = os.path.join(target_data_dir, series_name + SERIES_HOSTNAME_FILENAME_SEPARATOR + platform.node() + ".csv")
 
@@ -285,7 +285,7 @@ def get_year_month_day(some_datetime):
 
 def find_csv_days():
     csv_days = []
-    for day_dir in glob.glob(os.path.join(data_root_dir, "*/*/*")):
+    for day_dir in glob.glob(os.path.join(data_series_root_dir, "*/*/*")):
         m = re.search("/([0-9]{4})/([0-9]{2})/([0-9]{2})$", day_dir)
         if not m:
             print "WARNING: junk in data dir at: " + day_dir
@@ -513,7 +513,7 @@ def rebuild_jscache_day(year, month, day):
     if os.path.exists(day_jscache_dir):
         shutil.rmtree(day_jscache_dir)
 
-    day_data_dir = os.path.join(data_root_dir, year, month, day)
+    day_data_dir = os.path.join(data_series_root_dir, year, month, day)
     if not os.path.exists(day_data_dir):
         if not args.quiet:
             print "Deleted stale jscache for %s-%s-%s" % (year, month, day)
@@ -647,7 +647,7 @@ def subcommand_jscache():
             print "WARNING: junk in jscache dir at: " + jscache_day_dir
             continue
         year, month, day = m.groups()
-        if not os.path.exists(os.path.join(data_root_dir, year, month, day)):
+        if not os.path.exists(os.path.join(data_series_root_dir, year, month, day)):
             days_to_update |= {(year, month, day)}
 
     if days_to_update:
@@ -727,7 +727,7 @@ if __name__ == '__main__':
         config = load_raw_config()
         resolve_config()
 
-        data_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "data"))
+        data_series_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "data", "series"))
         jscache_root_dir = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "jscache"))
         jsdata_filename = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "allChartData.js"))
 
