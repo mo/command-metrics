@@ -505,6 +505,11 @@ def subcommand_measure():
         print "Measurement stopped: " + str(measurement_stoptime)[:19]
         print "Measurement took: " + human_readable_time_span(measurement_seconds)
 
+    # Because we have done refresh_dynamic_target_list() earlier, there might be
+    # newly added targets so we need to recompute "unique_series" in config to
+    # make sure all (metric, target) pairs are included (even the new ones).
+    recompute_unique_series_in_config()
+
     # day_dirs_written_to will typically be an array of a single day, except for
     # example if measure_series() started at 23:50 and took 20 mins to run.
     update_jscache(day_dirs_written_to)
@@ -744,7 +749,7 @@ def load_raw_config():
 
     return raw_config
 
-def resolve_config():
+def recompute_unique_series_in_config():
     # Add a few things for convenience, like a list of all unique pairs of
     # (metric_name, target) that appear in at least one chart, these are the
     # series that we will list in the "ls" command and it's also the set of series
@@ -792,7 +797,7 @@ if __name__ == '__main__':
         jsdata_filename = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "allChartData.js"))
 
         config = load_raw_config()
-        resolve_config()
+        recompute_unique_series_in_config()
 
         top_parser = argparse.ArgumentParser()
         subparsers = top_parser.add_subparsers(help='subcommands', dest="subcommand")
