@@ -630,6 +630,7 @@ def rebuild_toplevel_jsdata():
             jsdata_temp_file.write("  {\n")
             jsdata_temp_file.write("    'chartKey': '%s',\n" % chart["chart_id"])
             jsdata_temp_file.write("    'chartTitle': %s,\n" % json.dumps(chart["chart_title"]))
+            jsdata_temp_file.write("    'chartYAxis': %s,\n" % json.dumps(chart.get("chart_yaxis", "fixed-zero")))
             jsdata_temp_file.write("    'chartSeries': [\n")
 
             for chart_series_declaration in chart["chart_series"]:
