@@ -77,7 +77,7 @@ const agElement = document.querySelector('#analysis-chart-placeholder');
 const analysisChart = new AnalysisChart({
     element: agElement,
     series: allSeries,
-    rightColumnWidth: 350,
+    rightColumnWidth: 400,
     width: params["width"] || window.innerWidth,
     height: params["height"] || window.innerHeight - 160,
     xFormatter: (x) => AnalysisChart.timestampToDatetimeString(x),
