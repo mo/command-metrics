@@ -412,6 +412,12 @@ def get_resolved_series_for_chart_series_entry(chart_series_entry):
             "color": chart_series_entry.get("color", None),
         })
 
+    if not target and not target_list_id:
+        resolved_series.append({
+            "metric": chart_series_entry["metric"],
+            "target": "",
+            "color": chart_series_entry.get("color", None),
+        })
 
     return resolved_series
 
