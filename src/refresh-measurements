@@ -608,29 +608,28 @@ def rebuild_jscache_day(year, month, day):
             with open(serie_jscache_file + ".jsv", "w") as fil:
                 fil.write(all_jsvals)
 
-def reconcatenate_jscache_dir_from_subdirs(jscache_dir):
-    for existing_jsv in glob.glob(jscache_dir + "/*.jsv"):
-        os.remove(existing_jsv)
+def reconcatenate_jscache_dir_from_subdirs(jscache_dir, writing_to_jscache_root = False):
+    # jsdata is always read from .jsv files in all dirs and it is written
+    # to .jsv for all dirs except the jsdata root where .js files are written instead
+    output_file_extension = ".js" if writing_to_jscache_root else ".jsv"
+    for existing_jsdata in glob.glob(jscache_dir + "/*" + output_file_extension):
+        os.remove(existing_jsdata)
     for serie in config["unique_series"]:
         series_name = serie["name"]
-        jscache_concatenated_jsv = os.path.join(jscache_dir, series_name + ".jsv")
         subdir_jsv_files = sorted(glob.glob(jscache_dir + "/*/" + series_name + ".jsv"))
+        jscache_concatenated_jsv = os.path.join(jscache_dir, series_name + output_file_extension)
         with open(jscache_concatenated_jsv, "wb") as concatenated:
+            if writing_to_jscache_root:
+                concatenated.write("loadedSeriesData['%s'] = [\n" % series_name)
             for subdir_jsv in subdir_jsv_files:
                 shutil.copyfileobj(open(subdir_jsv, 'rb'), concatenated)
+            if writing_to_jscache_root:
+                concatenated.write("\n];\n")
+                concatenated.write("onSeriesLoaded('%s', loadedSeriesData['%s']);" % (series_name, series_name))
 
 def rebuild_toplevel_jsdata():
     jsdata_tempfile_oshandle, jsdata_tempfile_name = tempfile.mkstemp()
     with open(jsdata_tempfile_name, "w") as jsdata_temp_file:
-        for serie in config["unique_series"]:
-            series_name = serie["name"]
-            series_jsv = os.path.join(jscache_root_dir, series_name + ".jsv")
-            if os.path.exists(series_jsv):
-                # series_jsv wont exist if it was added to config.json but no measurement has been done yet
-                jsdata_temp_file.write("const %s = [\n" % series_name)
-                shutil.copyfileobj(open(series_jsv, 'rb'), jsdata_temp_file)
-                jsdata_temp_file.write("\n];\n\n")
-
         jsdata_temp_file.write("allChartData = [\n")
         for chart in config["charts"]:
             jsdata_temp_file.write("  {\n")
@@ -652,7 +651,7 @@ def rebuild_toplevel_jsdata():
                     jsdata_temp_file.write("              'name': %s,\n" % json.dumps(series_title))
                     if resolved_serie.get("color", None):
                         jsdata_temp_file.write("              'color': '%s',\n" % resolved_serie["color"])
-                    jsdata_temp_file.write("              'data': %s\n" % get_series_name(metric_name, target))
+                    jsdata_temp_file.write("              'id': '%s'\n" % get_series_name(metric_name, target))
                     jsdata_temp_file.write("            },\n")
             jsdata_temp_file.write("    ],\n")
 
@@ -691,7 +690,7 @@ def update_jscache(days_to_update):
         jsv_year_dir = os.path.join(jscache_root_dir, year)
         reconcatenate_jscache_dir_from_subdirs(jsv_year_dir)
 
-    reconcatenate_jscache_dir_from_subdirs(jscache_root_dir)
+    reconcatenate_jscache_dir_from_subdirs(jscache_root_dir, writing_to_jscache_root = True)
 
     rebuild_toplevel_jsdata()
 

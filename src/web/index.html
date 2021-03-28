@@ -22,7 +22,7 @@ body {
     margin-left: 0;
     margin-right: 0;
 }
-#chart-select {
+#chart-select-container select {
     font-size: 12pt;
     margin-bottom: 15px;
     margin-left: 100px;
@@ -39,56 +39,24 @@ body {
 </head>
 <body>
 
-<select id="chart-select" onchange="javascript:window.location='?chart='+this.value">
-</select>
-
+<div id="chart-select-container"></div>
 <div id="analysis-chart-placeholder"></div>
 
 <script>
-var params = getUrlParams();
+const params = getUrlParams();
 
-var selectedChart;
-for (var i = 0; i < allChartData.length; ++i) {
-    if (params["chart"] === allChartData[i]["chartKey"]) {
-        selectedChart = allChartData[i];
-        break;
-    }
-}
-if (!selectedChart) {
-    selectedChart = allChartData[0];
+const allChartKeys = allChartData.map(ch => ch.chartKey)
+let selectedChartKey;
+if (allChartKeys.includes(params["chart"])) {
+    selectedChartKey = params["chart"]
+} else {
+    selectedChartKey = allChartKeys[0]
 }
 
-populateSelectBox(allChartData, selectedChart);
+const chartSelectContainerElement = document.getElementById('chart-select-container')
+initSelectBox(chartSelectContainerElement, allChartData, selectedChartKey);
 
-selectedChart.chartSeries = selectedChart.chartSeries.filter((serie) => {
-    if (serie.data.length == 0) {
-        console.warn(`WARNING: serie with name "${serie.name}" has empty data array, it will be ignored.`);
-        return false;
-    }
-    return true;
-})
-
-const allSeries = selectedChart.chartSeries;
-const allSeriesYMin = d3.min(allSeries, serie => d3.min(serie.data, datapoint => datapoint.y));
-const allSeriesYMax = d3.max(allSeries, serie => d3.max(serie.data, datapoint => datapoint.y));
-const allSeriesYSpan = allSeriesYMax - allSeriesYMin;
-
-const agElement = document.querySelector('#analysis-chart-placeholder');
-const analysisChart = new AnalysisChart({
-    element: agElement,
-    series: allSeries,
-    rightColumnWidth: 400,
-    width: params["width"] || window.innerWidth,
-    height: params["height"] || window.innerHeight - 160,
-    xFormatter: (x) => AnalysisChart.timestampToDatetimeString(x),
-    annotations: selectedChart.chartAnnotations,
-    yAxisScalingMode: selectedChart.chartYAxis,
-});
-
-analysisChart.onYAxisScalingChanged((newMode) => {
-    // TODO: save in url?
-});
-
+loadChart(selectedChartKey)
 </script>
 </body>
 </html>

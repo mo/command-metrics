@@ -3,8 +3,8 @@
  */
 function getUrlParams()
 {
-	params = []
-	keyvals = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&')
+	const params = []
+	const keyvals = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&')
 	for(var i = 0; i < keyvals.length; ++i)
 	{
 		keyval = keyvals[i].split('=')
