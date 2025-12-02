@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # TODO:
 # -- mark single metric as "bulk" (can run in parallel to others) or "perf" (must have machine to itself when it runs)
@@ -64,13 +64,13 @@ def parse_datetime(dt_str):
 def add_to_path_if_exists(target_env, folder):
     if os.path.exists(folder):
         if args.verbose:
-            print "[DEBUG] add '%s' to PATH" % folder
+            print("[DEBUG] add '%s' to PATH" % folder)
         target_env["PATH"] = target_env["PATH"] + ":" + folder
 
 def prepend_to_path_if_exists(target_env, folder):
     if os.path.exists(folder):
         if args.verbose:
-            print "[DEBUG] preprend '%s' to PATH" % folder
+            print("[DEBUG] preprend '%s' to PATH" % folder)
         target_env["PATH"] = folder + ":" + target_env["PATH"]
 
 def mkdir_p(path):
@@ -90,7 +90,7 @@ def print_msg_with_details(msg, exitcode, metric_command, metric_name, target, s
                + "          exitcode: " + str(exitcode) + "\n"
                + "          stdout: " + repr(stdout) + "\n"
                + "          stderr: " + repr(stderr) + "\n")
-    print fullmsg
+    print(fullmsg)
 
 def measure_metric(metric_name, target):
     metric = config["metrics"][metric_name]
@@ -105,7 +105,7 @@ def measure_metric(metric_name, target):
                 sleep_time_str = "%.0f" % cmd_sleep_seconds
             else:
                 sleep_time_str = "%.3f" % cmd_sleep_seconds
-            print "[DEBUG] throttle sleeping for %s seconds" % sleep_time_str
+            print("[DEBUG] throttle sleeping for %s seconds" % sleep_time_str)
         time.sleep(cmd_sleep_seconds)
 
     child_env = os.environ.copy()
@@ -127,27 +127,27 @@ def measure_metric(metric_name, target):
 
     command_template = metric["cmd"]
     if args.verbose:
-        print "[DEBUG] command template: " + command_template
+        print("[DEBUG] command template: " + command_template)
     try:
         metric_command = command_template % {"target": target}
     except (TypeError, ValueError):
         # TypeError is raised if template string contains %f instead of %%f
         # ValueError is raised if template string contains %!
-        print r"[ERROR] Invalid command template for metric '%s'." % metric_name
-        print r"[NOTE] % must be escaped as %% and target should be referred to as %(target)s"
-        print r"[NOTE] Offending command template was: " + command_template
+        print(r"[ERROR] Invalid command template for metric '%s'." % metric_name)
+        print(r"[NOTE] % must be escaped as %% and target should be referred to as %(target)s")
+        print(r"[NOTE] Offending command template was: " + command_template)
         sys.exit(1)
     if args.verbose:
-        print "[DEBUG] about to run command: " + metric_command
+        print("[DEBUG] about to run command: " + metric_command)
 
     proc = subprocess.Popen(metric_command, env=child_env, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout_output, stderr_output = proc.communicate()
-    stdout_output = stdout_output.strip()
-    stderr_output = stderr_output.strip() if stderr_output else ''
+    stdout_output = stdout_output.decode('utf-8').strip()
+    stderr_output = stderr_output.decode('utf-8').strip() if stderr_output else ''
     if proc.returncode != 0:
         print_msg_with_details("[WARNING] metric command returned non-zero exit code", proc.returncode, metric_command, metric_name, target, stdout_output, stderr_output)
     if args.verbose:
-        print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
+        print("[DEBUG] value (from stdout) was: " + repr(stdout_output))
     try:
         value = float(stdout_output)
     except ValueError:
@@ -171,7 +171,7 @@ def measure_metric(metric_name, target):
         value = None
 
     if args.verbose:
-        print ""
+        print("")
     return value
 
 
@@ -193,27 +193,27 @@ class MeasuredData(object):
 
         timestamp_str = timestamp.strftime(FULL_DATETIME_FORMAT)
         mkdir_p(os.path.dirname(csv_filepath))
-        with open(csv_filepath, "ab") as data_file:
+        with open(csv_filepath, "a", newline='') as data_file:
             writer = csv.writer(data_file, delimiter=MeasuredData.CSV_DELIMITER_CHAR, quotechar=MeasuredData.CSV_QUOTE_CHAR, quoting=csv.QUOTE_MINIMAL)
             writer.writerow([timestamp_str, value])
 
     def add_data_from_file(self, datafile):
         basename = os.path.basename(datafile)
         series_name, _ = basename.split(SERIES_HOSTNAME_FILENAME_SEPARATOR, 1)
-        with open(datafile, 'rb') as csvfile:
+        with open(datafile, 'r', newline='') as csvfile:
             csv_reader = csv.reader(csvfile, delimiter=MeasuredData.CSV_DELIMITER_CHAR, quotechar=MeasuredData.CSV_QUOTE_CHAR)
             for row in csv_reader:
                 try:
                     [timestamp_str, value] = row
                     self.data.setdefault(series_name, []).append((timestamp_str, value))
                 except ValueError as e:
-                    print "ERROR: invalid line in incoming data file: " + datafile
-                    print "Line parts: " + repr(row)
-                    print "Error details: " + repr(e)
+                    print("ERROR: invalid line in incoming data file: " + datafile)
+                    print("Line parts: " + repr(row))
+                    print("Error details: " + repr(e))
                     sys.exit(1)
 
     def sort(self):
-        for _, series_data in self.data.iteritems():
+        for _, series_data in self.data.items():
             series_data.sort()
 
     @staticmethod
@@ -233,9 +233,9 @@ class MeasuredData(object):
 
     def save_to_file(self, csv_filepath):
         mkdir_p(os.path.dirname(csv_filepath))
-        with open(csv_filepath, "wb") as data_file:
+        with open(csv_filepath, "w", newline='') as data_file:
             writer = csv.writer(data_file, delimiter=MeasuredData.CSV_DELIMITER_CHAR, quotechar=MeasuredData.CSV_QUOTE_CHAR, quoting=csv.QUOTE_MINIMAL)
-            for series_name, series_data in self.data.iteritems():
+            for series_name, series_data in self.data.items():
                 for [timestamp_str, value] in series_data:
                     writer.writerow([timestamp_str, value])
 
@@ -254,7 +254,7 @@ def measure_series(selected_series):
     day_dirs_written_to = set()
     total = len(selected_series)
     if args.verbose:
-        print "[DEBUG] prepared todo list of %d things to measure" % total
+        print("[DEBUG] prepared todo list of %d things to measure" % total)
 
     for (idx, (metric_name, target)) in enumerate(selected_series):
         if not args.quiet:
@@ -265,9 +265,9 @@ def measure_series(selected_series):
                 "target": target,
             }
             if target:
-                print "[%(current)d/%(total)d] measuring '%(metric_name)s' for '%(target)s'" % print_dict
+                print("[%(current)d/%(total)d] measuring '%(metric_name)s' for '%(target)s'" % print_dict)
             else:
-                print "[%(current)d/%(total)d] measuring '%(metric_name)s'" % print_dict
+                print("[%(current)d/%(total)d] measuring '%(metric_name)s'" % print_dict)
         value = measure_metric(metric_name, target)
 
         # value == None means that the measurement failed (e.g. a metric script
@@ -288,7 +288,7 @@ def find_csv_days():
     for day_dir in glob.glob(os.path.join(data_series_root_dir, "*/*/*")):
         m = re.search("/([0-9]{4})/([0-9]{2})/([0-9]{2})$", day_dir)
         if not m:
-            print "WARNING: junk in data dir at: " + day_dir
+            print("WARNING: junk in data dir at: " + day_dir)
             continue
         year, month, day = m.groups()
         csv_days.append([year, month, day, day_dir])
@@ -296,20 +296,20 @@ def find_csv_days():
 
 def subcommand_delete():
     if not args.chart and not args.metric and not args.target:
-        print "ERROR: You must specify at least one argument that specifies what to delete, i.e. --chart, --metric, --target or a combination of those."
-        print "       Run subcommand delete with --help for more information."
+        print("ERROR: You must specify at least one argument that specifies what to delete, i.e. --chart, --metric, --target or a combination of those.")
+        print("       Run subcommand delete with --help for more information.")
         sys.exit(1)
 
     if args.metric and not any(serie["metric_name"] == args.metric for serie in config["unique_series"]):
-        print "ERROR: invalid metric name specified in --metric/-m parameter: " + args.metric
+        print("ERROR: invalid metric name specified in --metric/-m parameter: " + args.metric)
         sys.exit(1)
 
     if args.target and not any(serie["target"] == args.target for serie in config["unique_series"]):
-        print "ERROR: invalid target specified in --target/-t parameter: " + args.target
+        print("ERROR: invalid target specified in --target/-t parameter: " + args.target)
         sys.exit(1)
 
     if args.chart and not any(chart["chart_id"] == args.chart for chart in config["charts"]):
-        print "ERROR: invalid chart_id specified in --chart/-c parameter: " + args.chart
+        print("ERROR: invalid chart_id specified in --chart/-c parameter: " + args.chart)
         sys.exit(1)
 
     selected_series = set()
@@ -335,7 +335,7 @@ def subcommand_delete():
     for [year, month, day, day_dir] in find_csv_days():
         for csv_file in os.listdir(day_dir):
             if not csv_file.endswith(".csv"):
-                print "WARNING: junk file in data dir at: " + os.path.join(day_dir, csv_file)
+                print("WARNING: junk file in data dir at: " + os.path.join(day_dir, csv_file))
                 continue
             csv_file_series_name, _ = csv_file.split(SERIES_HOSTNAME_FILENAME_SEPARATOR, 1)
             if csv_file_series_name in selected_series:
@@ -428,16 +428,16 @@ def refresh_dynamic_target_list(target_list_id, refresh_cmd):
 
     proc = subprocess.Popen(refresh_cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout_output, stderr_output = proc.communicate()
-    stdout_output = stdout_output.strip()
-    stderr_output = stderr_output.strip() if stderr_output else ''
+    stdout_output = stdout_output.decode('utf-8').strip()
+    stderr_output = stderr_output.decode('utf-8').strip() if stderr_output else ''
     if proc.returncode != 0:
         print("[WARNING] dynamic target list command returned non-zero exit code")
-        print("                exit code: " + proc.returncode)
+        print("                exit code: " + str(proc.returncode))
         print("                refresh_cmd: " + refresh_cmd)
         print("                stdout_output: " + stdout_output)
         print("                stderr_output: " + stderr_output)
     if args.verbose:
-        print "[DEBUG] value (from stdout) was: " + repr(stdout_output)
+        print("[DEBUG] value (from stdout) was: " + repr(stdout_output))
 
     new_target_ids = [t for t in stdout_output.splitlines() if t.strip() != ""]
     existing_target_ids = load_existing_entries_for_dynamic_target_list(target_list_id)
@@ -454,17 +454,17 @@ def subcommand_measure():
     if args.metric:
         for metric_name in args.metric:
             if not any(serie["metric_name"] == metric_name for serie in config["unique_series"]):
-                print "ERROR: invalid metric name specified in --metric/-m parameter: " + metric_name
+                print("ERROR: invalid metric name specified in --metric/-m parameter: " + metric_name)
                 sys.exit(1)
 
     if args.chart:
         for chart_id in args.chart:
             if not any(chart["chart_id"] == chart_id for chart in config["charts"]):
-                print "ERROR: invalid chart_id specified in --chart/-c parameter: " + chart_id
+                print("ERROR: invalid chart_id specified in --chart/-c parameter: " + chart_id)
                 sys.exit(1)
 
     # Use unbuffered stdout
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+    sys.stdout.reconfigure(write_through=True)
 
     # If "--metric foo --metric yada" is passed, then only re-take measurements
     # for those metrics. If --chart foo --chart bar is passed, then re-take
@@ -501,15 +501,15 @@ def subcommand_measure():
 
     measurement_start_time = datetime.datetime.now()
     if not args.quiet:
-        print "Measurement started: " + str(measurement_start_time)[:19]
+        print("Measurement started: " + str(measurement_start_time)[:19])
 
     day_dirs_written_to = measure_series(selected_series)
 
     measurement_stoptime = datetime.datetime.now()
     measurement_seconds = (measurement_stoptime - measurement_start_time).total_seconds()
     if not args.quiet:
-        print "Measurement stopped: " + str(measurement_stoptime)[:19]
-        print "Measurement took: " + human_readable_time_span(measurement_seconds)
+        print("Measurement stopped: " + str(measurement_stoptime)[:19])
+        print("Measurement took: " + human_readable_time_span(measurement_seconds))
 
     # Because we have done refresh_dynamic_target_list() earlier, there might be
     # newly added targets so we need to recompute "unique_series" in config to
@@ -522,21 +522,21 @@ def subcommand_measure():
 
 def subcommand_import():
     if not any(serie["metric_name"] == args.metric_name for serie in config["unique_series"]):
-        print "ERROR: invalid metric name specified: " + args.metric_name
+        print("ERROR: invalid metric name specified: " + args.metric_name)
         sys.exit(1)
 
     if args.target:
         if not any(serie["target"] == args.target for serie in config["unique_series"]):
-            print "ERROR: invalid target specified in --target/-t parameter: " + args.target
+            print("ERROR: invalid target specified in --target/-t parameter: " + args.target)
             sys.exit(1)
 
     if not os.path.exists(args.csv_file):
-        print "ERROR: file not found '%s'" % args.csv_file
+        print("ERROR: file not found '%s'" % args.csv_file)
         sys.exit(1)
 
     day_dirs_written_to = set()
 
-    with open(args.csv_file, 'rb') as csvfile:
+    with open(args.csv_file, 'r', newline='') as csvfile:
         csv_reader = csv.reader(csvfile, delimiter=MeasuredData.CSV_DELIMITER_CHAR, quotechar=MeasuredData.CSV_QUOTE_CHAR)
         for row in csv_reader:
             try:
@@ -548,8 +548,8 @@ def subcommand_import():
                 day_dirs_written_to |= {(year, month, day)}
 
             except ValueError as e:
-                print "ERROR: invalid line in incoming data file: " + args.csv_file
-                print "Details: " + repr(e)
+                print("ERROR: invalid line in incoming data file: " + args.csv_file)
+                print("Details: " + repr(e))
                 sys.exit(1)
 
     update_jscache(day_dirs_written_to)
@@ -560,16 +560,16 @@ def subcommand_ls():
     target_len = max([len(serie.get("target", "")) for serie in config["unique_series"]])
 
     if not args.quiet:
-        print "%s  %s  %s" % ("METRIC".ljust(metric_name_len),
+        print("%s  %s  %s" % ("METRIC".ljust(metric_name_len),
                               "TARGET".ljust(target_len),
-                              "SERIES".ljust(series_name_len))
+                              "SERIES".ljust(series_name_len)))
     for serie in config["unique_series"]:
         series_name = serie["name"]
         metric_name = serie["metric_name"]
         target = serie.get("target", "")
-        print "%s  %s  %s" % (metric_name.ljust(metric_name_len),
+        print("%s  %s  %s" % (metric_name.ljust(metric_name_len),
                               target.ljust(target_len),
-                              series_name.ljust(series_name_len))
+                              series_name.ljust(series_name_len)))
 
 def dir_last_modified(target_dir):
     files = glob.glob(os.path.join(target_dir, "*"))
@@ -583,13 +583,13 @@ def rebuild_jscache_day(year, month, day):
     day_data_dir = os.path.join(data_series_root_dir, year, month, day)
     if not os.path.exists(day_data_dir):
         if not args.quiet:
-            print "Deleted stale jscache for %s-%s-%s" % (year, month, day)
+            print("Deleted stale jscache for %s-%s-%s" % (year, month, day))
         # All data for this day has been deleted, deleting the corresponding
         # jscache dir (which we just did above) is the only thing we need to do.
         return
 
     if not args.quiet:
-        print "Rebuilding jscache for %s-%s-%s" % (year, month, day)
+        print("Rebuilding jscache for %s-%s-%s" % (year, month, day))
 
     measured_data = MeasuredData.load_from_dir(day_data_dir)
     mkdir_p(day_jscache_dir)
@@ -602,7 +602,7 @@ def rebuild_jscache_day(year, month, day):
             jsvals = []
             for timestamp_str, value in series_data:
                 timestamp = datetime.datetime.strptime(timestamp_str, FULL_DATETIME_FORMAT)
-                timestamp_unix = timestamp.strftime("%s")
+                timestamp_unix = int(timestamp.timestamp())
                 jsvals.append("{x:%s,y:%s}," % (timestamp_unix, value))
             all_jsvals = "".join(jsvals)
             with open(serie_jscache_file + ".jsv", "w") as fil:
@@ -618,17 +618,18 @@ def reconcatenate_jscache_dir_from_subdirs(jscache_dir, writing_to_jscache_root 
         series_name = serie["name"]
         subdir_jsv_files = sorted(glob.glob(jscache_dir + "/*/" + series_name + ".jsv"))
         jscache_concatenated_jsv = os.path.join(jscache_dir, series_name + output_file_extension)
-        with open(jscache_concatenated_jsv, "wb") as concatenated:
+        with open(jscache_concatenated_jsv, "w") as concatenated:
             if writing_to_jscache_root:
                 concatenated.write("loadedSeriesData['%s'] = [\n" % series_name)
             for subdir_jsv in subdir_jsv_files:
-                shutil.copyfileobj(open(subdir_jsv, 'rb'), concatenated)
+                shutil.copyfileobj(open(subdir_jsv, 'r'), concatenated)
             if writing_to_jscache_root:
                 concatenated.write("\n];\n")
                 concatenated.write("onSeriesLoaded('%s', loadedSeriesData['%s']);" % (series_name, series_name))
 
 def rebuild_toplevel_jsdata():
     jsdata_tempfile_oshandle, jsdata_tempfile_name = tempfile.mkstemp()
+    os.close(jsdata_tempfile_oshandle)
     with open(jsdata_tempfile_name, "w") as jsdata_temp_file:
         jsdata_temp_file.write("allChartData = [\n")
         for chart in config["charts"]:
@@ -663,8 +664,8 @@ def rebuild_toplevel_jsdata():
                     elif type(annotation_item) is dict:
                         annotations = annotation_item
 
-                    for date, description in annotations.iteritems():
-                        timestamp = parse_datetime(date).strftime("%s")
+                    for date, description in annotations.items():
+                        timestamp = int(parse_datetime(date).timestamp())
                         jsdata_temp_file.write("            '%s': %s,\n" % (timestamp, json.dumps(description)))
 
                 jsdata_temp_file.write("    }\n")
@@ -672,7 +673,6 @@ def rebuild_toplevel_jsdata():
             jsdata_temp_file.write("  },\n")
         jsdata_temp_file.write("]\n")
 
-    os.close(jsdata_tempfile_oshandle)
     shutil.move(jsdata_tempfile_name, jsdata_filename)
     os.chmod(jsdata_filename, stat.S_IRUSR | stat.S_IWUSR | stat.S_IROTH)
 
@@ -711,7 +711,7 @@ def subcommand_jscache():
     for jscache_day_dir in glob.glob(os.path.join(jscache_root_dir, "*/*/*/.")):
         m = re.search(r"/([0-9]{4})/([0-9]{2})/([0-9]{2})/\.$", jscache_day_dir)
         if not m:
-            print "WARNING: junk in jscache dir at: " + jscache_day_dir
+            print("WARNING: junk in jscache dir at: " + jscache_day_dir)
             continue
         year, month, day = m.groups()
         if not os.path.exists(os.path.join(data_series_root_dir, year, month, day)):
@@ -739,7 +739,7 @@ def get_safe_name(full_name):
     #       less than 80 + 40 (for hash) + 10 (for hostname) which is less than
     #       130 which safely below the max filename length on eCryptFS and other
     #       file system types that might have similar absurd constraints.
-    safe_name = name_safe_chars[0:80] + "_" + hashlib.sha1(full_name).hexdigest()
+    safe_name = name_safe_chars[0:80] + "_" + hashlib.sha1(full_name.encode('utf-8')).hexdigest()
     safe_name = re.sub("__+", "_", safe_name)
     # NOTE: safe_name will be used as a Javascript identifier, and we
     # also build data filenames using: safe_name + "-" + hostname + ".csv"
@@ -770,7 +770,7 @@ def recompute_unique_series_in_config():
                 metric_to_list_of_targets_map.setdefault(resolved_serie["metric"], set()).add(resolved_serie["target"])
 
     unique_series = []
-    for metric_name, target_list in metric_to_list_of_targets_map.iteritems():
+    for metric_name, target_list in metric_to_list_of_targets_map.items():
         for target in target_list:
             unique_series.append({
                 "metric_name": metric_name,
@@ -845,4 +845,4 @@ if __name__ == '__main__':
 
         sys.exit(main())
     except KeyboardInterrupt:
-        print
+        print()
