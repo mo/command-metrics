@@ -16,6 +16,12 @@ you keep command-metrics data in a git repo it's good to set:
 for that particular repository. It will instruction git not to emit the usual
 trailing whitespace error for CR.
 
+Set `"enabled": False` on a chart or an entry in its `chart_series` to skip
+its measurements and dynamic target-list refreshes, including when selected
+with `measure --chart` or `--metric`. Entries default to enabled. Historical
+data and charts remain available; a series shared with an enabled chart can
+still be measured through that chart.
+
 ## License
 
 GPLv3

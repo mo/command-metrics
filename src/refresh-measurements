@@ -474,6 +474,9 @@ def subcommand_measure():
     # using the specified metric.
     selected_series = set()
     for chart in config["charts"]:
+        if not chart.get("enabled", True):
+            continue
+
         # Typically one "series_entry" refers to a single series, but if the
         # series_entry has a target_list attribute, it results in a set of
         # series instead.
