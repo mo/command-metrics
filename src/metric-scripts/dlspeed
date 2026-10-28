@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# dlspeed - measure download speed by fetching the first megabyte of a URL.
+#
+# Live current/average speed goes to stderr; the final average in KB/s is
+# printed to stdout as a bare number, so it can be captured:
+#
+#   dlspeed URL                 sample the first 1 MB (default)
+#   dlspeed -n 5M URL           sample the first 5 MB
+#   dlspeed -n 0 URL            no limit, download the whole thing
+#   dlspeed -t 10 URL           also give up after 10 seconds
+#   dlspeed -i 0.5 URL          update every 0.5s (default 0.2)
+#   dlspeed -w 3 URL            average "current" speed over 3s (default 1)
+#
+# Nothing is written to disk. Extra curl args go after the URL:
+#   dlspeed URL -H 'Accept-Encoding: gzip'
+#
+# The clock starts at the first received byte, so DNS/TLS/TTFB are excluded
+# and the number reflects transfer rate rather than round-trip latency.
+set -uo pipefail
+
+usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+
+limit=1M; max_time=""; interval=0.2; window=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n|--bytes)    limit="${2:-}"; shift 2 ;;
+    -t|--time)     max_time="${2:-}"; shift 2 ;;
+    -i|--interval) interval="${2:-}"; shift 2 ;;
+    -w|--window)   window="${2:-}"; shift 2 ;;
+    -h|--help)     usage; exit 0 ;;
+    --) shift; break ;;
+    *) break ;;
+  esac
+done
+
+url="${1:-}"
+[ -n "$url" ] || { usage; exit 2; }
+shift
+
+# Accept 1M / 512k / 1048576
+case "$limit" in
+  *[kK]) limit=$(( ${limit%[kK]} * 1024 )) ;;
+  *[mM]) limit=$(( ${limit%[mM]} * 1024 * 1024 )) ;;
+  *[gG]) limit=$(( ${limit%[gG]} * 1024 * 1024 * 1024 )) ;;
+esac
+case "$limit" in
+  ''|*[!0-9]*) echo "dlspeed: bad --bytes value: $limit" >&2; exit 2 ;;
+esac
+
+curl_args=(-sS -L --fail)
+[ -n "$max_time" ] && curl_args+=(--max-time "$max_time")
+
+PYCODE=$(cat <<'PY'
+import collections, os, select, sys, time
+
+interval, window, limit = float(sys.argv[1]), float(sys.argv[2]), int(sys.argv[3])
+err, tty = sys.stderr, sys.stderr.isatty()
+fd = sys.stdin.fileno()
+
+def human(x):
+    for u in ("B", "KB", "MB", "GB", "TB"):
+        if x < 1024 or u == "TB":
+            return (x, u)
+        x /= 1024.0
+
+start = None          # clock starts at the first byte, not at connect
+total = 0
+marks = collections.deque()
+last = 0.0
+hit_limit = False
+
+def elapsed():
+    return time.monotonic() - start if start else 0.0
+
+def tick():
+    now = time.monotonic()
+    while len(marks) > 1 and now - marks[0][0] > window:
+        marks.popleft()
+    span = now - marks[0][0] if marks else 0.0
+    el = elapsed()
+    cur = (total - marks[0][1]) / span if span >= 0.05 else total / el
+    avg = total / el if el > 0 else 0.0
+    err.write("\r\033[K" if tty else "")
+    err.write("%7.1f %-2s/s   avg %7.1f %-2s/s   %8.1f %-2s   %5.1fs" %
+              (human(cur) + human(avg) + human(total) + (el,)))
+    err.write("" if tty else "\n")
+    err.flush()
+
+try:
+    while True:
+        ready, _, _ = select.select([fd], [], [], interval)
+        if ready:
+            if start is None:
+                start = time.monotonic()
+                marks.append((start, 0))
+            want = 1 << 16
+            if limit:
+                want = min(want, limit - total)
+            chunk = os.read(fd, want)
+            if not chunk:
+                break
+            total += len(chunk)
+            if limit and total >= limit:
+                hit_limit = True
+        now = time.monotonic()
+        if start is not None:
+            marks.append((now, total))
+        if now - last >= interval and elapsed() >= 0.05:
+            tick()
+            last = now
+        if hit_limit:
+            break
+except KeyboardInterrupt:
+    pass
+
+if total:
+    tick()
+    err.write("\n")
+    err.flush()
+
+el = elapsed()
+if total == 0 or el <= 0:
+    sys.exit(4)
+print("%.1f" % (total / el / 1024.0))
+sys.exit(3 if hit_limit else 0)
+PY
+)
+
+# Hold curl's stderr aside: stopping early makes curl fail with a write error,
+# and a -t timeout makes it fail with 28. Neither is worth showing.
+errf=$(mktemp "${TMPDIR:-/tmp}/dlspeed.XXXXXX")
+trap 'rm -f "$errf"' EXIT
+
+curl "${curl_args[@]}" "$url" "$@" 2>"$errf" | python3 -c "$PYCODE" "$interval" "$window" "$limit"
+rc_curl=${PIPESTATUS[0]} rc_py=${PIPESTATUS[1]}
+
+# 3 = reader stopped at the byte limit, so whatever curl says about the
+# truncated transfer is expected. 28 = timeout, which is what -t asks for.
+if [ "$rc_py" -eq 3 ]; then
+  exit 0
+fi
+if [ "$rc_curl" -ne 0 ] && ! { [ "$rc_curl" -eq 28 ] && [ -n "$max_time" ]; }; then
+  cat "$errf" >&2
+  echo "dlspeed: curl failed (exit $rc_curl)" >&2
+  exit "$rc_curl"
+fi
+exit "$rc_py"
