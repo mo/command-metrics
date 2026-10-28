@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+#
+# Measure how long a single HTTP GET takes, in seconds.
+#
+# This includes DNS, connect, TLS and time-to-first-byte. Use when npm downloads
+# are stalling i.e. pnpm saying "Request took 12611ms". I.e. stalls before any
+# data flows rather than low bandwidth.
+#
+# Usage:  http-request-seconds [--ttfb] URL [EXTRA_CURL_ARGS...]
+#   --ttfb   report time to first byte instead of total time
+#
+# Prints the seconds on stdout. Prints nothing (no datapoint) if the request
+# failed outright, e.g. offline or a non-2xx status, since a fast failure
+# would otherwise look like a fast request.
+
+set -uo pipefail
+
+MAX_TIME=60
+
+field=time_total
+if [ "${1:-}" = "--ttfb" ]; then
+    field=time_starttransfer
+    shift
+fi
+
+url="${1:-}"
+if [ -z "$url" ]; then
+    echo "usage: http-request-seconds [--ttfb] URL [EXTRA_CURL_ARGS...]" >&2
+    exit 2
+fi
+shift
+
+out=$(curl -sS -o /dev/null --max-time "$MAX_TIME" \
+    -w '%{http_code} %{time_total} %{'"$field"'}' "$@" "$url")
+rc=$?
+read -r code total value <<< "$out"
+
+case "$code" in
+    2??) printf '%s\n' "$value" ;;
+    # curl exit 28 = operation timed out
+    *) if [ "$rc" -eq 28 ]; then printf '%s\n' "$total"; else exit 1; fi ;;
+esac
