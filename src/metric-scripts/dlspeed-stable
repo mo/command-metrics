@@ -6,8 +6,9 @@
 # Usage:  dlspeed-stable --every MIN [--at MIN] --name NAME -- DLSPEEDTEST_ARGS...
 #
 #   --every MIN  measure every MIN minutes (cron runs us every 5 minutes)
-#   --at MIN     offset within that period, so different URLs can take turns,
-#                e.g. --every 10 --at 5 measures at :05, :15, :25, ...
+#   --at MIN     offset within that period, so different URLs (or different
+#                machines on the same connection) can take turns, e.g.
+#                --every 20 --at 5 measures at :05, :25, :45
 #   --name NAME  identifies the back-off state file
 #
 # Always prints a number on stdout: the speed in MB/s, or -1 when there is
@@ -16,7 +17,9 @@
 # Printing nothing would crash command-metrics' "require" check.
 #
 # On HTTP 429 (rate limited) it stops measuring that NAME for an hour.
-# Errors go to stderr with a timestamp, so redirect stderr to the log.
+# When a measurement fails it also exits non-zero, which makes
+# command-metrics log a WARNING that includes our timestamped stderr, so no
+# stderr redirect is needed. Skipped runs exit 0 and log nothing.
 
 set -uo pipefail
 
@@ -81,4 +84,4 @@ case "$err" in
         ;;
 esac
 echo -1
-exit 0
+exit 1
