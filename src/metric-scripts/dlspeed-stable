@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# Run dlspeedtest (~/bin/bin-public) as a command-metrics metric, on a
-# schedule and with a back-off, so the servers never get hammered.
+# Run dlspeedtest (the copy in this same folder) as a command-metrics metric,
+# on a schedule and with a back-off, so the servers never get hammered.
 #
-# Usage:  dlspeedtest-metric --every MIN [--at MIN] --name NAME -- DLSPEEDTEST_ARGS...
+# Usage:  dlspeed-stable --every MIN [--at MIN] --name NAME -- DLSPEEDTEST_ARGS...
 #
 #   --every MIN  measure every MIN minutes (cron runs us every 5 minutes)
 #   --at MIN     offset within that period, so different URLs can take turns,
@@ -21,7 +21,7 @@
 set -uo pipefail
 
 BACKOFF_SECONDS=3600
-STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dlspeedtest-metric"
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dlspeed-stable"
 
 every=""; at=0; name=""
 while [ $# -gt 0 ]; do
@@ -30,16 +30,16 @@ while [ $# -gt 0 ]; do
         --at)    at="${2:-}"; shift 2 ;;
         --name)  name="${2:-}"; shift 2 ;;
         --) shift; break ;;
-        *) echo "dlspeedtest-metric: unknown argument: $1" >&2; echo -1; exit 0 ;;
+        *) echo "dlspeed-stable: unknown argument: $1" >&2; echo -1; exit 0 ;;
     esac
 done
 if [ -z "$every" ] || [ -z "$name" ] || [ $# -eq 0 ]; then
-    echo "usage: dlspeedtest-metric --every MIN [--at MIN] --name NAME -- DLSPEEDTEST_ARGS..." >&2
+    echo "usage: dlspeed-stable --every MIN [--at MIN] --name NAME -- DLSPEEDTEST_ARGS..." >&2
     echo -1
     exit 0
 fi
 
-log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [dlspeedtest-metric $name] $*" >&2; }
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') [dlspeed-stable $name] $*" >&2; }
 
 # Is it our turn? Round the minute down to the 5-minute cron slot first, so
 # a run that starts a little late still counts as its slot.
@@ -61,7 +61,7 @@ if [ -f "$state_file" ]; then
     esac
 fi
 
-errfile=$(mktemp "${TMPDIR:-/tmp}/dlspeedtest-metric.XXXXXX")
+errfile=$(mktemp "${TMPDIR:-/tmp}/dlspeed-stable.XXXXXX")
 trap 'rm -f "$errfile"' EXIT
 
 if value=$(dlspeedtest "$@" 2>"$errfile") && [ -n "$value" ]; then

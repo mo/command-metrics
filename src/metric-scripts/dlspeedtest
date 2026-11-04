@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# dlspeedtest - measure the download speed of a URL and print it in MB/s.
+#
+#   dlspeedtest URL          prints e.g. 4.9  (meaning 4.9 MB/s)
+#   dlspeedtest -s 60 URL    measure for 60 seconds instead of 30 (steadier)
+#   dlspeedtest -w 0 URL     skip the 3 second warm-up download
+#   dlspeedtest -n 1 URL     at most 1 measured download (fewer requests)
+#
+# Examples:
+#   dlspeedtest 'https://speed.cloudflare.com/__down?bytes=90000000'
+#   dlspeedtest 'https://registry.npmjs.org/onnxruntime-node/-/onnxruntime-node-1.31.1.tgz'
+#   dlspeedtest 'https://mirrors.edge.kernel.org/ubuntu-releases/22.04.5/ubuntu-22.04.5-live-server-amd64.iso'
+#   dlspeedtest 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Daedongyeojido-full.jpg'
+#
+# Cloudflare and especially Wikimedia rate-limit big downloads (HTTP 429),
+# all the more from shared VPN/proxy IPs, so run those two sparingly. npm
+# and the Ubuntu ISO mirror (kernel.org's CDN) are fine to repeat.
+#
+# How it measures: after a 3 second warm-up download that is not counted
+# (it often pays for a cold CDN cache), the URL is downloaded for up to 10
+# seconds at a time, each time on a fresh connection, until the time is up.
+# Timing starts at the first received byte, so DNS/TCP/TLS setup and server
+# think-time are excluded. The result is total bytes / total transfer time.
+# Use a big file (100 MB or so): small ones finish before the connection
+# reaches full speed, which makes the result jump around between runs.
+#
+# 1 MB = 1,000,000 bytes, so Mbit/s = MB/s x 8.
+# Only needs bash, curl and awk. Nothing is written to disk.
+set -uo pipefail
+
+CHUNK=10     # seconds per download
+UA='dlspeedtest/1.0 (download speed check script; curl)'
+
+usage() { sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; }
+die() { echo "dlspeedtest: $*" >&2; exit 2; }
+
+budget=30; warmup=3; max_downloads=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s|--seconds) budget="${2:-}"; shift 2 ;;
+    -w|--warmup)  warmup="${2:-}"; shift 2 ;;
+    -n|--max-downloads) max_downloads="${2:-}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) die "unknown option: $1 (see --help)" ;;
+    *) break ;;
+  esac
+done
+[ $# -eq 1 ] || { usage >&2; exit 2; }
+url=$1
+case "$budget" in ''|*[!0-9]*|0) die "bad --seconds value: $budget" ;; esac
+case "$warmup" in ''|*[!0-9]*) die "bad --warmup value: $warmup" ;; esac
+case "$max_downloads" in ''|*[!0-9]*) die "bad --max-downloads value: $max_downloads" ;; esac
+command -v curl >/dev/null 2>&1 || die "curl is required"
+
+# Progress goes to stderr, only when it is a terminal, on one line that is
+# erased again, so all that is left in the end is the number.
+if [ -t 2 ]; then
+  progress() { printf '\r\033[K%s' "$*" >&2; }
+else
+  progress() { :; }
+fi
+
+# download SECONDS -> prints "bytes seconds", or the reason and fails.
+# Hitting the time limit (curl exit 28) is the normal way a download ends.
+download() {
+  local out
+  out=$(curl -s -L -o /dev/null -A "$UA" --connect-timeout 15 --max-time "$1" \
+          -w '%{http_code} %{size_download} %{time_starttransfer} %{time_total}' "$url")
+  echo "$out" | awk '{
+    if ($1 !~ /^2/) { print ($1 == "000" ? "connection failed" : "HTTP " $1); exit 1 }
+    x = $4 - $3
+    if ($2 <= 0 || x <= 0) { print "nothing received"; exit 1 }
+    printf "%d %.3f\n", $2, x
+  }'
+}
+
+if [ "$warmup" -gt 0 ]; then
+  progress "warm-up"
+  download "$warmup" >/dev/null
+fi
+
+bytes=0; secs=0; n=0; fails=0; err=""
+start=$SECONDS
+while [ $(( SECONDS - start )) -lt "$budget" ]; do
+  left=$(( budget - (SECONDS - start) ))
+  [ "$left" -gt "$CHUNK" ] && left=$CHUNK
+  [ "$left" -lt 3 ] && [ "$n" -gt 0 ] && break
+  [ "$max_downloads" -gt 0 ] && [ $(( n + fails )) -ge "$max_downloads" ] && break
+  progress "measuring ($(( SECONDS - start ))s of ${budget}s done)"
+  if r=$(download "$left"); then
+    n=$(( n + 1 ))
+    bytes=$(( bytes + ${r% *} ))
+    secs=$(awk -v a="$secs" -v b="${r#* }" 'BEGIN { print a + b }')
+  else
+    fails=$(( fails + 1 )); err=$r
+    # Don't keep hammering a server that refuses us.
+    case "$r" in "HTTP 429") break ;; esac
+    [ "$fails" -ge 3 ] && break
+  fi
+done
+progress ""
+
+if [ "$n" -eq 0 ]; then
+  case "$err" in
+    "HTTP 429") err="HTTP 429, the server is rate-limiting this IP; try again later" ;;
+  esac
+  echo "dlspeedtest: failed: $err" >&2
+  exit 1
+fi
+awk -v b="$bytes" -v s="$secs" 'BEGIN { printf "%.1f\n", b / s / 1e6 }'
